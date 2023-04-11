@@ -1,0 +1,220 @@
+---
+title: "t-ALL_project_internshipM1"
+author: "HoangAnhNguyen"
+date: "2023-04-03"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r}
+#if (!require("BiocManager", quietly = TRUE))
+#    install.packages("BiocManager")
+
+#BiocManager::install("TCGAbiolinks")
+```
+
+```{r, message = FALSE}
+library(TCGAbiolinks)
+library(dplyr)
+library(DT)
+
+```
+
+```{r}
+#Fetch data T-ALL P2
+
+#mRNA P2
+Proj_P2 = "TARGET-ALL-P2"
+query_mRNA_P2 <- GDCquery(
+    project = Proj_P2,
+    data.category = "Transcriptome Profiling",
+    data.type = "Gene Expression Quantification"
+  )
+GDCdownload(query_mRNA_P2)
+expdat_mRNA_P2 <- GDCprepare(query = query_mRNA_P2)
+
+#SNV P2 
+query_SNV_P2 <- GDCquery(
+    project = Proj_P2,
+    data.category = "Simple Nucleotide Variation",
+    access = "open",
+    data.type = "Masked Somatic Mutation"
+  )
+GDCdownload(query_SNV)
+expdat_SNV_P2 <- GDCprepare(query = query_SNV_P2)
+
+```
+
+
+```{r}
+#Fetch data T-ALL P3
+
+#mRNA P3
+Proj_P3 = "TARGET-ALL-P3"
+query_mRNA_P3 <- GDCquery(
+    project = Proj_P3,
+    data.category = "Transcriptome Profiling",
+    data.type = "Gene Expression Quantification"
+  )
+GDCdownload(query_mRNA_P3)
+expdat_mRNA_P3 <- GDCprepare(query = query_mRNA_P3)
+
+#SNV P3 
+query_SNV_P3 <- GDCquery(
+    project = Proj_P3,
+    data.category = "Simple Nucleotide Variation",
+    access = "open",
+    data.type = "Masked Somatic Mutation"
+  )
+GDCdownload(query_SNV_P3)
+expdat_SNV_P3 <- GDCprepare(query = query_SNV_P3)
+```
+
+
+```{r}
+#Fetch TARGET-AML
+
+#mRNA AML
+Proj_AML = "TARGET-AML"
+query_mRNA_AML <- GDCquery(
+    project = Proj_AML,
+    data.category = "Transcriptome Profiling",
+    data.type = "Gene Expression Quantification"
+  )
+GDCdownload(query_mRNA_AML)
+expdat_mRNA_AML <- GDCprepare(query = query_mRNA_AML)
+
+
+
+
+#SNV AML
+query_SNV_AML <- GDCquery(
+    project = Proj_AML,
+    data.category = "Simple Nucleotide Variation",
+    access = "open",
+    data.type = "Masked Somatic Mutation"
+  )
+GDCdownload(query_SNV_AML)
+expdat_SNV_AML <- GDCprepare(query = query_SNV_AML)
+
+
+```
+
+
+```{r}
+#P2 T-ALL Clinical Data 
+
+query_P2_clinical <- GDCquery(
+  project = "TARGET-ALL-P2",
+  data.category = "Clinical",
+  access = "controlled",
+  data.type = "Clinical Supplement")
+GDCdownload(query_P2_clinical)
+expdat_P2_clinical <- GDCprepare(query = query_P2_clinical)
+
+```
+
+
+
+```{r}
+
+#P3 T-ALL Clincial Data 
+query_P3_clinical <- GDCquery(
+  project = "TARGET-ALL-P3",
+  data.category = "Clinical",
+  access = "open",
+  data.type = "Clinical Supplement")
+GDCdownload(query_P3_clinical)
+expdat_P3_clinical <- GDCprepare(query = query_P3_clinical)
+```
+
+```{r}
+#AML Clinical Data 
+query_AML_clinical <- GDCquery(
+  project = "TARGET-AML",
+  data.category = "Clinical",
+  access = "open",
+  data.type = "Clinical Supplement")
+GDCdownload(query_AML_clinical)
+expdat_AML_clinical <- GDCprepare(query = query_AML_clinical)
+
+```
+
+
+
+```{r}
+
+#retrieve the concat files of tALL SNV P2 + P3
+
+#concat file TALL_SNV_P3
+
+tAll_P3_SNV_all <- read.table(file = 'GDCdata/TARGET-ALL-P3/harmonized/Simple_Nucleotide_Variation/Masked_Somatic_Mutation/tALL_SNV_P3.tsv', header = FALSE,sep="\t")
+
+#concat file TALL_SNv_P2
+
+tAll_P2_SNV_all <- read.table(file = 'GDCdata/TARGET-ALL-P2/harmonized/Simple_Nucleotide_Variation/Masked_Somatic_Mutation/tALL_SNV_P2.tsv', header = FALSE, sep = "\t")
+
+```
+
+
+
+
+```{r}
+
+tAll_P3_SNV_all %>%
+  group_by(tAll_P3_SNV_all$V16) %>%
+  summarize(distinct_points = n_distinct(tAll_P3_SNV_all$V10))
+```
+
+
+
+```{r}
+
+tAll_P2_SNV_all %>%
+  group_by(tAll_P2_SNV_all$V16) %>%
+  summarize(distinct_points = n_distinct(tAll_P2_SNV_all$V10))
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+```{r}
+#DownLoad data Storage 
+
+saveRDS(tAll_P2_SNV_all, file = "DownloadedData/tALL_P2_SNV_all.rds")
+saveRDS(tAll_P3_SNV_all, file = "DownloadedData/tALL_P3_SNV_all.rds")
+  
+    
+```
+
+
