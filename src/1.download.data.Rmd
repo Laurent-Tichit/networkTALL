@@ -16,7 +16,7 @@ library(TCGAbiolinks)
 
 # Please update the following line to suit your own needs
 ```{r set your own data directory}
-setwd("/home/tichit/sync/Recherche/AnnieNguyen/networkTALL")
+GDCdata.dir <- "/home/tichit/sync/Recherche/AnnieNguyen/networkTALL/GDCdata"
 ```
 
 ```{r}
@@ -24,89 +24,79 @@ setwd("/home/tichit/sync/Recherche/AnnieNguyen/networkTALL")
 
 #Fetch data T-ALL P2
 #mRNA P2
-Proj_P2 = "TARGET-ALL-P2"
 query_mRNA_P2 <- GDCquery(
-    project = Proj_P2,
+    project = "TARGET-ALL-P2",
     data.category = "Transcriptome Profiling",
     data.type = "Gene Expression Quantification"
   )
-GDCdownload(query_mRNA_P2)
-
 #SNV P2 
 query_SNV_P2 <- GDCquery(
-    project = Proj_P2,
+    project = "TARGET-ALL-P2",
     data.category = "Simple Nucleotide Variation",
     access = "open",
     data.type = "Masked Somatic Mutation"
   )
-GDCdownload(query_SNV)
-
-#Fetch data T-ALL P3
-#mRNA P3
-Proj_P3 = "TARGET-ALL-P3"
-query_mRNA_P3 <- GDCquery(
-    project = Proj_P3,
-    data.category = "Transcriptome Profiling",
-    data.type = "Gene Expression Quantification"
-  )
-GDCdownload(query_mRNA_P3)
-
-#SNV P3 
-query_SNV_P3 <- GDCquery(
-    project = Proj_P3,
-    data.category = "Simple Nucleotide Variation",
-    access = "open",
-    data.type = "Masked Somatic Mutation"
-  )
-GDCdownload(query_SNV_P3)
-
-#Fetch TARGET-AML
-
-#mRNA AML
-Proj_AML = "TARGET-AML"
-query_mRNA_AML <- GDCquery(
-    project = Proj_AML,
-    data.category = "Transcriptome Profiling",
-    data.type = "Gene Expression Quantification"
-  )
-GDCdownload(query_mRNA_AML)
-
-#SNV AML
-query_SNV_AML <- GDCquery(
-    project = Proj_AML,
-    data.category = "Simple Nucleotide Variation",
-    access = "open",
-    data.type = "Masked Somatic Mutation"
-  )
-GDCdownload(query_SNV_AML)
-
 #T-ALL P2 Clinical Data 
 query_P2_clinical <- GDCquery(
   project = "TARGET-ALL-P2",
   data.category = "Clinical",
   access = "controlled",
-  data.type = "Clinical Supplement")
-GDCdownload(query_P2_clinical)
-
-
-
+  data.type = "Clinical Supplement"
+  )
+#Fetch data T-ALL P3
+#mRNA P3
+query_mRNA_P3 <- GDCquery(
+    project = "TARGET-ALL-P3",
+    data.category = "Transcriptome Profiling",
+    data.type = "Gene Expression Quantification"
+  )
+#SNV P3 
+query_SNV_P3 <- GDCquery(
+    project = "TARGET-ALL-P3",
+    data.category = "Simple Nucleotide Variation",
+    access = "open",
+    data.type = "Masked Somatic Mutation"
+  )
 #P3 T-ALL Clincial Data 
 query_P3_clinical <- GDCquery(
   project = "TARGET-ALL-P3",
   data.category = "Clinical",
   access = "open",
-  data.type = "Clinical Supplement")
-GDCdownload(query_P3_clinical)
-
-
+  data.type = "Clinical Supplement"
+  )
+#Fetch TARGET-AML
+#mRNA AML
+query_mRNA_AML <- GDCquery(
+    project = "TARGET-AML",
+    data.category = "Transcriptome Profiling",
+    data.type = "Gene Expression Quantification"
+  )
+#SNV AML
+query_SNV_AML <- GDCquery(
+    project = "TARGET-AML",
+    data.category = "Simple Nucleotide Variation",
+    access = "open",
+    data.type = "Masked Somatic Mutation"
+  )
 #AML Clinical Data 
 query_AML_clinical <- GDCquery(
   project = "TARGET-AML",
   data.category = "Clinical",
   access = "open",
-  data.type = "Clinical Supplement")
-GDCdownload(query_AML_clinical)
+  data.type = "Clinical Supplement"
+  )
+
+GDCdownload(query = query_mRNA_P2, directory = GDCdata.dir)
+GDCdownload(query = query_SNV_P2, directory = GDCdata.dir)
+GDCdownload(query = query_P2_clinical, directory = GDCdata.dir)
+GDCdownload(query = query_mRNA_P3, directory = GDCdata.dir)
+GDCdownload(query = query_SNV_P3, directory = GDCdata.dir)
+GDCdownload(query = query_P3_clinical, directory = GDCdata.dir)
+GDCdownload(query = query_mRNA_AML, directory = GDCdata.dir)
+GDCdownload(query = query_SNV_AML, directory = GDCdata.dir)
+GDCdownload(query = query_AML_clinical, directory = GDCdata.dir)
 ```
+
 ## TODO add code to fetch list of samples corresponding to ambiguous L
 ## currently it seems the only possibility is to go to GDC portal and download manually
 ## https://portal.gdc.cancer.gov/exploration?facetTab=clinical&filters=%7B%22op%22%3A%22and%22%2C%22content%22%3A%5B%7B%22op%22%3A%22in%22%2C%22content%22%3A%7B%22field%22%3A%22cases.diagnoses.primary_diagnosis%22%2C%22value%22%3A%5B%22mixed%20phenotype%20acute%20leukemia%2C%20b%2Fmyeloid%2C%20nos%22%2C%22mixed%20phenotype%20acute%20leukemia%2C%20t%2Fmyeloid%2C%20nos%22%5D%7D%7D%2C%7B%22op%22%3A%22in%22%2C%22content%22%3A%7B%22field%22%3A%22cases.project.program.name%22%2C%22value%22%3A%5B%22TARGET%22%5D%7D%7D%2C%7B%22op%22%3A%22in%22%2C%22content%22%3A%7B%22field%22%3A%22cases.project.project_id%22%2C%22value%22%3A%5B%22TARGET-ALL-P3%22%5D%7D%7D%2C%7B%22content%22%3A%7B%22field%22%3A%22genes.is_cancer_gene_census%22%2C%22value%22%3A%5B%22true%22%5D%7D%2C%22op%22%3A%22in%22%7D%5D%7D

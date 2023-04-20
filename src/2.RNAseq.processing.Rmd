@@ -15,41 +15,140 @@ knitr::opts_chunk$set(echo = TRUE)
 ```{r install and load packages}
 #install.packages("BiocManager")
 #BiocManager::install("DESeq2")
+
 ```
 
-
-
-
-```{r ???, message = FALSE}
-#library(TCGAbiolinks)
-library(dplyr)
-library(DT)
+```{r}
+Project.dir <- "/home/tichit/sync/Recherche/AnnieNguyen/networkTALL/"
+GDCdata.dir <- paste0(Project.dir,"GDCdata/")
 ```
 
+```{r build df from data directory, message = FALSE}
+# library(TCGAbiolinks)
+# 
+# query_mRNA_P2 <- GDCquery(
+#     project = "TARGET-ALL-P2",
+#     data.category = "Transcriptome Profiling",
+#     data.type = "Gene Expression Quantification"
+#   )
+# #SNV P2 
+# query_SNV_P2 <- GDCquery(
+#     project = "TARGET-ALL-P2",
+#     data.category = "Simple Nucleotide Variation",
+#     access = "open",
+#     data.type = "Masked Somatic Mutation"
+#   )
+# #T-ALL P2 Clinical Data 
+# query_P2_clinical <- GDCquery(
+#   project = "TARGET-ALL-P2",
+#   data.category = "Clinical",
+#   access = "controlled",
+#   data.type = "Clinical Supplement"
+#   )
+# #Fetch data T-ALL P3
+# #mRNA P3
+# query_mRNA_P3 <- GDCquery(
+#     project = "TARGET-ALL-P3",
+#     data.category = "Transcriptome Profiling",
+#     data.type = "Gene Expression Quantification"
+#   )
+# #SNV P3 
+# query_SNV_P3 <- GDCquery(
+#     project = "TARGET-ALL-P3",
+#     data.category = "Simple Nucleotide Variation",
+#     access = "open",
+#     data.type = "Masked Somatic Mutation"
+#   )
+# #P3 T-ALL Clincial Data 
+# query_P3_clinical <- GDCquery(
+#   project = "TARGET-ALL-P3",
+#   data.category = "Clinical",
+#   access = "open",
+#   data.type = "Clinical Supplement"
+#   )
+# #Fetch TARGET-AML
+# #mRNA AML
+# query_mRNA_AML <- GDCquery(
+#     project = "TARGET-AML",
+#     data.category = "Transcriptome Profiling",
+#     data.type = "Gene Expression Quantification"
+#   )
+# #SNV AML
+# query_SNV_AML <- GDCquery(
+#     project = "TARGET-AML",
+#     data.category = "Simple Nucleotide Variation",
+#     access = "open",
+#     data.type = "Masked Somatic Mutation"
+#   )
+# #AML Clinical Data 
+# query_AML_clinical <- GDCquery(
+#   project = "TARGET-AML",
+#   data.category = "Clinical",
+#   access = "open",
+#   data.type = "Clinical Supplement"
+#   )
+# 
+# expdat_mRNA_P2 <- GDCprepare(query = query_mRNA_P2, directory = GDCdata.dir)
+# expdat_SNV_P2 <- GDCprepare(query = query_SNV_P2, directory = GDCdata.dir)
+# expdat_P2_clinical <- GDCprepare(query = query_P2_clinical, directory = GDCdata.dir)
+# expdat_mRNA_P3 <- GDCprepare(query = query_mRNA_P3, directory = GDCdata.dir)
+# expdat_SNV_P3 <- GDCprepare(query = query_SNV_P3, directory = GDCdata.dir)
+# expdat_P3_clinical <- GDCprepare(query = query_P3_clinical, directory = GDCdata.dir)
+# expdat_mRNA_AML <- GDCprepare(query = query_mRNA_AML, directory = GDCdata.dir)
+# expdat_SNV_AML <- GDCprepare(query = query_SNV_AML, directory = GDCdata.dir)
+# expdat_AML_clinical <- GDCprepare(query = query_AML_clinical, directory = GDCdata.dir)
+```
 
+```{bash, engine.opts='-l'}
+PROJECT_DIR="/home/tichit/sync/Recherche/AnnieNguyen/networkTALL/"
+PROCESSEDDATA_DIR="$PROJECT_DIR/processed_data/"
+
+for I in P2 P3
+do
+  MSM_DIR="$PROJECT_DIR/GDCdata/TARGET-ALL-${I}/harmonized/Simple_Nucleotide_Variation/Masked_Somatic_Mutation/"
+  zcat $GDCDATA_DIR/$MSM_DIR/*/*.gz | grep -v '^#' | grep -v '^Hugo' > "$PROCESSEDDATA_DIR/tALL_SNV_${I}.tsv"
+done
+```
+
+```{r}
+#retrieve the concat files of tALL SNV P2 + P3
+
+#concat file TALL_SNV_P3
+
+tAll_P3_SNV_all <- read.table(file = paste0(Project.dir,'processed_data/tALL_SNV_P3.tsv'), header = FALSE, quote='"', sep="\t")
+
+#concat file TALL_SNv_P2
+
+tALL_P2_SNV_all <- read.table(file = paste0(Project.dir,'processed_data/tALL_SNV_P2.tsv'), header = FALSE, quote='"', sep = "\t")
+
+```
 
 
 
 
 ```{r}
 #DATA PRESENTATION for T-ALL [MATRIX + PLOT]
-library(ggplot2)
-library(readxl)
+library(tidyr)
+library(dplyr)
+
+P2_clinical_data <- read.table(file = paste0(GDCdata.dir, "TARGET-ALL-P2/harmonized/Clinical/TARGET_ALL_classification.txt"), sep = "\t")
+colnames(P2_clinical_data) <- c("patientID", "disease")
+
 
 matrix_P2_SNV <- matrix(c(tALL_P2_SNV_all$V1, tALL_P2_SNV_all$V16), ncol =  2)
-df_P2_SNV <- as.data.frame(matrix_P2_SNV)%>% separate(V2,into = c("patientID","day"),sep = 16)
-colnames(df_P2_SNV) <- c("geneID","patientID","day")
-df_P2_SNV <- df_P2_SNV[,1:2]
-P2_join <- left_join(df_P2_SNV,P2_clinical_data, by ="patientID")
+df_P2_SNV <- as.data.frame(matrix_P2_SNV) %>% separate(V2, into = c("patientID","day"), sep = 16)
+colnames(df_P2_SNV) <- c("geneID", "patientID", "day")
+df_P2_SNV <- df_P2_SNV[, 1:2]
+P2_join <- left_join(df_P2_SNV, P2_clinical_data, by ="patientID")
 
-P2_TALL <- na.omit(P2_join[P2_join$disease == "T Cell ALL",])
+P2_TALL <- na.omit(P2_join[P2_join$disease == "T Cell ALL", ])
 
 #number of patient carrying a mutation per gene 
 P2_TALL_mut_per_gene <- P2_TALL %>%
   group_by(P2_TALL$geneID) %>%
-  summarize(n=n())
+  summarize(n = n())
 
-P2_TALL_mut_per_gene <- P2_TALL_mut_per_gene[order(P2_TALL_mut_per_gene$n,decreasing = TRUE),]
+P2_TALL_mut_per_gene <- P2_TALL_mut_per_gene[order(P2_TALL_mut_per_gene$n, decreasing = TRUE),]
 P2_TALL_mut_per_gene <- as.data.frame(P2_TALL_mut_per_gene)
 
 colnames(P2_TALL_mut_per_gene) <- c("Gene","N_mutation")
