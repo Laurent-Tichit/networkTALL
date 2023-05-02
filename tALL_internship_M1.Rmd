@@ -14,11 +14,8 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ```{r}
 #if (!require("BiocManager", quietly = TRUE))
-#   install.packages("BiocManager")
-
+#install.packages("BiocManager")
 #BiocManager::install("TCGAbiolinks")
-
-#BiocManager::install("limma")
 #BiocManager::install("DESeq2")
 
 ```
@@ -29,18 +26,23 @@ library(dplyr)
 library(DT)
 library(ggplot2)
 library(readxl)
+library(stringr)
+library(DESeq2)
+library(tidyverse)
+library(readxl)
+library(pheatmap)
+library(gridExtra)
+library(dichromat)
+library(RColorBrewer)
+library(ggrepel)
+source("C:/Users/nguye/OneDrive/Bureau/internshipDLAD_M1/R_scripts/PCA_colorblind.R")
 
 ```
 
 
 
-#########################################################################################################################
-```{r}
-#STEP 0 
+```{r FETCH P2 P3 AML DATA } 
 
-
-
-#Fetch data ALL P2
 #mRNA P2
 Proj_P2 = "TARGET-ALL-P2"
 query_mRNA_P2 <- GDCquery(
@@ -48,8 +50,8 @@ query_mRNA_P2 <- GDCquery(
     data.category = "Transcriptome Profiling",
     data.type = "Gene Expression Quantification"
   )
-GDCdownload(query_mRNA_P2)
-expdat_mRNA_P2 <- GDCprepare(query = query_mRNA_P2)
+#GDCdownload(query_mRNA_P2)
+#expdat_mRNA_P2 <- GDCprepare(query = query_mRNA_P2)
 
 #SNV P2 
 query_SNV_P2 <- GDCquery(
@@ -58,12 +60,10 @@ query_SNV_P2 <- GDCquery(
     access = "open",
     data.type = "Masked Somatic Mutation"
   )
-GDCdownload(query_SNV)
-expdat_SNV_P2 <- GDCprepare(query = query_SNV_P2)
+#GDCdownload(query_SNV)
+#expdat_SNV_P2 <- GDCprepare(query = query_SNV_P2)
 
 
-######################################################################
-#Fetch data ALL P3
 
 #mRNA P3
 Proj_P3 = "TARGET-ALL-P3"
@@ -72,8 +72,8 @@ query_mRNA_P3 <- GDCquery(
     data.category = "Transcriptome Profiling",
     data.type = "Gene Expression Quantification"
   )
-GDCdownload(query_mRNA_P3)
-expdat_mRNA_P3 <- GDCprepare(query = query_mRNA_P3)
+#GDCdownload(query_mRNA_P3)
+#expdat_mRNA_P3 <- GDCprepare(query = query_mRNA_P3)
 
 #SNV P3 
 query_SNV_P3 <- GDCquery(
@@ -82,14 +82,13 @@ query_SNV_P3 <- GDCquery(
     access = "open",
     data.type = "Masked Somatic Mutation"
   )
-GDCdownload(query_SNV_P3)
-expdat_SNV_P3 <- GDCprepare(query = query_SNV_P3)
-```
+#GDCdownload(query_SNV_P3)
+#expdat_SNV_P3 <- GDCprepare(query = query_SNV_P3)
 
 
-```{r}
-#Fetch TARGET-AML
 
+# #Fetch TARGET-AML
+# 
 #mRNA AML
 Proj_AML = "TARGET-AML"
 query_mRNA_AML <- GDCquery(
@@ -97,416 +96,679 @@ query_mRNA_AML <- GDCquery(
     data.category = "Transcriptome Profiling",
     data.type = "Gene Expression Quantification"
   )
-GDCdownload(query_mRNA_AML)
-expdat_mRNA_AML <- GDCprepare(query = query_mRNA_AML)
+#GDCdownload(query_mRNA_AML)
+#expdat_mRNA_AML <- GDCprepare(query = query_mRNA_AML)
 
-
-
-
-#SNV AML
-query_SNV_AML <- GDCquery(
-    project = Proj_AML,
-    data.category = "Simple Nucleotide Variation",
-    access = "open",
-    data.type = "Masked Somatic Mutation"
-  )
-GDCdownload(query_SNV_AML)
-expdat_SNV_AML <- GDCprepare(query = query_SNV_AML)
+ 
+# #SNV AML
+# query_SNV_AML <- GDCquery(
+#     project = Proj_AML,
+#     data.category = "Simple Nucleotide Variation",
+#     access = "open",
+#     data.type = "Masked Somatic Mutation"
+#   )
+# #GDCdownload(query_SNV_AML)
+# #expdat_SNV_AML <- GDCprepare(query = query_SNV_AML)
 
 
 ```
 
 
-
-
-```{r}
-#DATA PRESENTATION for T-ALL [MATRIX + PLOT]
-library(ggplot2)
-library(readxl)
-
-matrix_P2_SNV <- matrix(c(tALL_P2_SNV_all$V1, tALL_P2_SNV_all$V16), ncol =  2)
-df_P2_SNV <- as.data.frame(matrix_P2_SNV)%>% separate(V2,into = c("patientID","day"),sep = 16)
-colnames(df_P2_SNV) <- c("geneID","patientID","day")
-df_P2_SNV <- df_P2_SNV[,1:2]
-P2_join <- left_join(df_P2_SNV,P2_clinical_data, by ="patientID")
-
-P2_TALL <- na.omit(P2_join[P2_join$disease == "T Cell ALL",])
-
-#number of patient carrying a mutation per gene 
-P2_TALL_mut_per_gene <- P2_TALL %>%
-  group_by(P2_TALL$geneID) %>%
-  summarize(n=n())
-
-P2_TALL_mut_per_gene <- P2_TALL_mut_per_gene[order(P2_TALL_mut_per_gene$n,decreasing = TRUE),]
-P2_TALL_mut_per_gene <- as.data.frame(P2_TALL_mut_per_gene)
-
-colnames(P2_TALL_mut_per_gene) <- c("Gene","N_mutation")
-
-
-#Plot the most mutated gene in T-ALL leukemia 
-P2_plot_gene_TALL <- ggplot(data = head(P2_TALL_mut_per_gene), aes(x = Gene, y = N_mutation)) + geom_bar(stat= "identity")
-P2_plot_gene_TALL + coord_flip()
-
-```
-
-
-
-```{r}
-#DATA PRESENTATION for B-ALL [MATRIX + PLOT]
-library(ggplot2)
-library(readxl)
-
-matrix_P2_SNV_Ball <- matrix(c(tALL_P2_SNV_all$V1, tALL_P2_SNV_all$V16), ncol =  2)
-df_P2_SNV_Ball <- as.data.frame(matrix_P2_SNV)%>% separate(V2,into = c("patientID","day"),sep = 16)
-colnames(df_P2_SNV_Ball) <- c("geneID","patientID","day")
-df_P2_SNV_Ball <- df_P2_SNV_Ball[,1:2]
-P2_join_Ball <- left_join(df_P2_SNV_Ball,P2_clinical_data, by ="patientID")
-
-P2_BALL <- na.omit(P2_join[P2_join$disease == "B Cell ALL",])
-
-#number of patient carrying a mutation per gene 
-P2_BALL_mut_per_gene <- P2_BALL %>%
-  group_by(P2_BALL$geneID) %>%
-  summarize(n=n())
-
-P2_BALL_mut_per_gene <- P2_BALL_mut_per_gene[order(P2_BALL_mut_per_gene$n,decreasing = TRUE),]
-P2_BALL_mut_per_gene <- as.data.frame(P2_BALL_mut_per_gene)
-
-colnames(P2_BALL_mut_per_gene) <- c("Gene","N_mutation")
-
-
-#Plot the most mutated gene in T-ALL leukemia 
-P2_plot_gene_BALL <- ggplot(data = head(P2_BALL_mut_per_gene), aes(x = Gene, y = N_mutation)) + geom_bar(stat= "identity")
-P2_plot_gene_BALL + coord_flip()
-
-```
-
-
-
-```{r}
-#DATA PRESENTATION for AML [MATRIX + PLOT]
-library(ggplot2)
-library(readxl)
-
-matrix_P3_SNV_AML <- matrix(c(tAll_P3_SNV_all$V1, tAll_P3_SNV_all$V16), ncol =  2)
-df_P3_SNV_AML <- as.data.frame(matrix_P3_SNV_AML)%>% separate(V2,into = c("patientID","day"),sep = 22)
-colnames(df_P3_SNV_AML) <- c("geneID","patientID","day")
-df_P3_SNV_AML <- df_P3_SNV_AML[,1:2]
-
-P3_bALL_clinical_data <- read_xlsx("C:/Users/nguye/OneDrive/Bureau/internshipDLAD_M1/GDCdata/TARGET-ALL-P3/harmonized/Clinical/Clinical_Supplement/b524f6f8-32dd-4edc-abbf-ae55fe533a67/TARGET_ALL_ClinicalData_Phase_III_20210811.xlsx")
-P3_bALL_clinical_data <- data.frame(geneID = P3_bALL_clinical_data$`TARGET USI`, patientID = P3_bALL_clinical_data$...)
-
-P3_join_AML <- left_join(df_P3_SNV_AML,P3_bALL_clinical_data, by ="patientID")
-
-P3_AML <- na.omit(P2_join[P2_join$disease == "AML",])
-
-#number of patient carrying a mutation per gene 
-P2_BALL_mut_per_gene <- P2_BALL %>%
-  group_by(P2_BALL$geneID) %>%
-  summarize(n=n())
-
-P2_BALL_mut_per_gene <- P2_BALL_mut_per_gene[order(P2_BALL_mut_per_gene$n,decreasing = TRUE),]
-P2_BALL_mut_per_gene <- as.data.frame(P2_BALL_mut_per_gene)
-
-colnames(P2_BALL_mut_per_gene) <- c("Gene","N_mutation")
-
-
-#Plot the most mutated gene in T-ALL leukemia 
-P2_plot_gene_BALL <- ggplot(data = head(P2_BALL_mut_per_gene), aes(x = Gene, y = N_mutation)) + geom_bar(stat= "identity")
-P2_plot_gene_BALL + coord_flip()
-
-```
-
-
-
-
-```{r}
-#Call clinical Data P2
-P2_clinical_data <- read.table(file = "C:/Users/nguye/OneDrive/Bureau/internshipDLAD_M1/GDCdata/TARGET-ALL-P2/harmonized/Clinical/TARGET_ALL_classification.txt", sep = "\t")
-colnames(P2_clinical_data) <- c("patientID","disease")
-
-
-plot_P2_SNV <- ggplot(matrix_P2_SNV, aes(x = matrix_P2_SNV[,2], y = matrix_P2_SNV[,1], color = matrix_P2_SNV[,3]))+ labs(x = "Sample", y = "Gene", z = "SNV types", tittle ="T-ALL SNV P2")  + 
-  geom_jitter(width = 0.5, height = 0.5)
-
-plot_P2_SNV
-
-heatmap(matrix_P2_SNV, scale = "none")
-```
-
-
-```{r}
-```
-
-
-####################################################################################################################################################################################
-```{r}
-#T-ALL P2 Clinical Data 
-
-query_P2_clinical <- GDCquery(
-  project = "TARGET-ALL-P2",
-  data.category = "Clinical",
-  access = "controlled",
-  data.type = "Clinical Supplement")
-GDCdownload(query_P2_clinical)
-expdat_P2_clinical <- GDCprepare(query = query_P2_clinical)
-
-```
-
-
-```{r}
-
-#P3 T-ALL Clincial Data 
-query_P3_clinical <- GDCquery(
-  project = "TARGET-ALL-P3",
-  data.category = "Clinical",
-  access = "open",
-  data.type = "Clinical Supplement")
-GDCdownload(query_P3_clinical)
-expdat_P3_clinical <- GDCprepare(query = query_P3_clinical)
-```
-
-
-```{r}
-#AML Clinical Data 
-query_AML_clinical <- GDCquery(
-  project = "TARGET-AML",
-  data.category = "Clinical",
-  access = "open",
-  data.type = "Clinical Supplement")
-GDCdownload(query_AML_clinical)
-expdat_AML_clinical <- GDCprepare(query = query_AML_clinical)
-
-```
-
-
-#########################################################################################################################
 ```{r}
 
 #retrieve the concat files of tALL SNV P2 + P3
+setwd("C:/Users/nguye/OneDrive/Bureau/internshipDLAD_M1/R_scripts")
 
-#concat file TALL_SNV_P3
+#concat files TALL_SNV_P3
+tAll_P3_SNV_all <- read.table(file = 'GDCdata/TARGET_ALL_P3/harmonized/Simple_Nucleotide_Variation/Masked_Somatic_Mutation/tALL_SNV_P3.tsv', header = FALSE,sep="\t")
 
-tAll_P3_SNV_all <- read.table(file = 'C:/Users/nguye/OneDrive/Bureau/internshipDLAD_M1/GDCdata/TARGET-ALL-P3/harmonized/Simple_Nucleotide_Variation/Masked_Somatic_Mutation/tALL_SNV_P3.tsv', header = FALSE,sep="\t")
-
-#concat file TALL_SNv_P2
-
-tAll_P2_SNV_all <- read.table(file = 'C:/Users/nguye/OneDrive/Bureau/internshipDLAD_M1/GDCdata/TARGET-ALL-P2/harmonized/Simple_Nucleotide_Variation/Masked_Somatic_Mutation/tALL_SNV_P2.tsv', header = FALSE, sep = "\t")
-
-```
-
-
-```{r}
-A <- tAll_P2_SNV_all %>%
-  group_by(tAll_P2_SNV_all$V16) %>%
-  summarize(n=n())
-
-
-B <- tAll_P3_SNV_all %>%
-  group_by(tAll_P3_SNV_all$V16) %>%
-  summarize(n=n())
-
-boxplot(A$n, ylim= c(0,50))
-boxplot(B$n, ylim= c(0,50))
-
-plot_P2_SNV_1 <- ggplot(A, aes(x = A$`tAll_P2_SNV_all$V16`, y = A$n) + labs(x = "Sample", y = "Gene")) + geom_jitter(width = 0.5, height = 0.5)
-
-plot_P2_SNV_1
-
-```
+#concat files TALL_SNV_P2
+tAll_P2_SNV_all <- read.table(file = 'GDCdata/TARGET_ALL_P2/harmonized/Simple_Nucleotide_Variation/Masked_Somatic_Mutation/tALL_SNV_P2.tsv', header = FALSE, sep = "\t")
 
 
 
+################################################################
 
+#DELPHINE SUGGESTED TO DOWNLOAD IT from BIOLINKS IF IT IS POSSIBLE
 
-
-
-
-#########################################################################################################################
-```{r}
-#Determine number of mutation occurrence per gene per patient 
-
-mut_per_gene_P3 <- tAll_P3_SNV_all  %>% group_by(tAll_P3_SNV_all$V1) %>% summarise(total_count=n()) mut_per_gene_P3
- 
-most_common_gene_P3 <-names(which.max(table(mut_per_gene_P3$`tAll_P3_SNV_all$V1`)))
-most_common_gene_P3
-
-
-
-mut_per_gene_P2 <- tAll_P2_SNV_all  %>% group_by(tAll_P2_SNV_all$V1) %>% summarise(total_count=n())
-mut_per_gene_P2 
-
-most_common_gene_P2 <-names(which.max(table(mut_per_gene_P2$`tAll_P2_SNV_all$V1`)))
-most_common_gene_P2
-```
-
-
-
-```{r}
-#Clinical Data in Target_ALL_P2 
-
-library(readxl)
-
-P2_Target_All_clindata_valsup <- read_xlsx("C:/Users/nguye/OneDrive/Bureau/internshipDLAD_M1/GDCdata/TARGET-ALL-P2/harmonized/Clinical/TARGET_ALL_ClinicalData_Validation_Supplement_20190129.xlsx")
-Target_All_clindata_valsup
-
-
-#Clinical Data in Target_ALL_P3
-P3_Target_All_clindata_valsup <- read_xlsx("C:/Users/nguye/OneDrive/Bureau/internshipDLAD_M1/GDCdata/TARGET-ALL-P3/harmonized/Clinical/Clinical_Supplement/b524f6f8-32dd-4edc-abbf-ae55fe533a67/TARGET_ALL_ClinicalData_Phase_III_20210811.xlsx")
-P3_Target_All_clindata_valsup
+################################################################
 ```
 
 
 ```{r}
 ############################################################################
-###########   Annie's attempt to extract data from expression data      #### 
+########   SUBGROUP IN CLINICAL DATA in Target_ALL_P2 [HOXA TAL1 ...########
+
+
+setwd("C:/Users/nguye/OneDrive/Bureau/internshipDLAD_M1/R_scripts/")
+
+P2_Target_All_clindata_valsup <- read_xlsx("GDCdata/TARGET_ALL_P2/harmonized/Clinical/TARGET_ALL_ClinicalData_Validation_Supplement_20190129.xlsx")
+P2_Target_All_clindata_valsup
+
+```
+
+
+```{r}
+############################################################################
+###########   Attempt to extract data from expression data P2           #### 
 ############################################################################
 setwd("C:/Users/nguye/OneDrive/Bureau/internshipDLAD_M1/R_scripts/")
 
-#####Pull the name of patient(cases) in this study####### 
-P2_mRNA_cases <- query_mRNA_P2[[1]][[1]]$cases
 
-#####"get list of interesting files
+#get list of interesting files
 paths <- list.files(
-    path = 'GDCdata/TARGET-ALL-P2/harmonized/Transcriptome_Profiling/Gene_Expression_Quantification/',
+    path = 'GDCdata/TARGET_ALL_P2/harmonized/Transcriptome_Profiling/Gene_Expression_Quantification',
     full.name = TRUE,
     recursive = TRUE,
     pattern = '*.tsv'
   )
-#their number
-nb.samples <- length(paths)
+
+
 #the short name of each file: sample ID
 sample.names <- substr(basename(paths), 1, 36)
 
-sample.names <- P2_mRNA_cases
+#get transcript names from first file: paths[1]  
+#skip the first 6 rows (uninteresting) 
+#get only the 1st column [1] then extract to vector [[1]]
+#transcript.names <- read.delim(paths[1], skip = 6, header = FALSE)[1][[1]] 
+gene.names<- read.delim(paths[1], skip = 6, header = FALSE)[2][[1]]
 
-#get transcript names from first file: paths[1]
-#skip the first 6 rows (uninteresting)
-transcript.names <- read.delim(paths[1], skip = 6, header = FALSE)[1][[1]] #get only the 1st column [1] then extract to vector [[1]]
-gene.names<- read.delim(paths[1], skip = 6, header = FALSE)[2][[1]] #get only the 1st column [1] then extract to vector [[1]]
-
-#their number  
-nb.transcripts <- length(transcript.names)
+#THEIR NUMBERS  
+nb.samples <- length(paths)
 nb.genes <- length(gene.names)
-nb.samples <- length(sample.names)
+nb.samples <- length(sample.names) #DOUBLE CHECKING
+
+
+
+#### CORRECT THE MIS-ORDERED FILE NAMES AND SAMPLES NAMES 
+m_2 <- data.frame(substr(paths[], 126,201),substr(paths[],90,124))
+colnames(m_2)  <- c("file_name", "id")
+dfID2file <- query_mRNA_P2[[1]][[1]]
+dfID2file <- dfID2file[,c(3,5,6,1)]
+#m_2 <- dplyr::right_join(m_2, dfID2file, by = "id")
+m_2 <- dplyr::right_join(m_2, dfID2file, by = "file_name")
+sample.names <- m_2$cases
+
+
+
+
 #create empty matrix of right size
-m <- matrix(
+m <- data.frame(matrix(
     nrow = nb.genes,
     ncol = nb.samples,
     byrow = TRUE,
     dimnames = list(gene.names,sample.names)
-  )
+  ))
 
-#Fill the empty matrix with data#
+#Fill the empty matrix with data but only choosing the protein coding gene
 
 for (i in 1:length(paths)) {
   print(paste0("processing file ", i, "/", nb.samples, ": ", basename(paths[[i]])))
-  m[,i]  <- read.delim(paths[[i]], skip = 6, header = FALSE)[4][[1]]
+  df  <- read.delim(paths[[i]], skip = 6, header = FALSE)
+  m[,i]  <- df[4][[1]]
 }
 
+write.csv(m, "RNASeq_P2.csv")
 
-write.table(m, "RNASeq_P2.csv")
+
+#Assign column names to the df to manipulate it better
+colnames(df) <-c("geneID", "genename", "genetype", "unstranded", "first_strand", "second_strand", "tpm", "fpkm", "fpkm_uq")
+
+filtered_df <- filter(df, genetype == "protein_coding") #choosing only protein coding genes 
+m_update <- subset(m, rownames(m) %in% filtered_df$genename)# m_update contain only protein coding genes of 532 patients 
+
+names(m_update) <- gsub(x = names(m_update), pattern = "\\.", replacement = "-") #noticing the column's names have changed, using the gsub function to replace the "." by the "-" to match the patientID from other original data  
+names(m) <- gsub(x = names(m), pattern = "\\.", replacement = "-")
+
+
+
+
+
+
+
+
+
 ```
 
+
+
 ```{r}
-############################################################################
-###########   Annie's attempt to extract data from expression data  P3    #### 
-############################################################################
+#######################################################################
+######## Differential Expression in Target_ALL_P2 Using DeSeq2  #######
+#######################################################################
 
-#####Pull the name of patient(cases) in this study####### 
-P3_mRNA_cases <- query_mRNA_P3[[1]][[1]]$cases
 
-#####"get list of interesting files
+
+############ BUILD experimental design (expdesign) for DESeq###################
+
+setwd("C:/Users/nguye/OneDrive/Bureau/internshipDLAD_M1/R_scripts/")
+
+#1   CREATE COUNT DATA  AND colDATA
+P2_mRNA_count_data <- read.csv("C:/Users/nguye/OneDrive/Bureau/internshipDLAD_M1/R_scripts/RNASeq_P2.csv", header = TRUE, sep = ",")
+as.data.frame(P2_mRNA_count_data, sep = "\t")
+
+P2_mRNa_colData <- read_xlsx("GDCdata/TARGET_ALL_P2/harmonized/Clinical/TARGET_ALL_ClinicalData_Phase_II_Validation_20211118.xlsx")
+
+#2  change the column name of P2_mRNA_countdata to match other table. 
+chartr(".","-",colnames(P2_mRNA_count_data))
+colnames(P2_mRNA_count_data) <- chartr(".","-",colnames(P2_mRNA_count_data))
+
+
+
+
+
+
+########   P2 clinical data achieved from Biolinks ##############################
+
+clinical <- GDCquery_clinic(project = "TARGET-ALL-P2", type = "clinical")
+clinical <- clinical[,c("submitter_id","primary_diagnosis","tissue_or_organ_of_origin")]
+
+clinical$primary_diagnosis <- str_replace(clinical$primary_diagnosis, "Precursor B-cell lymphoblastic leukemia", "BALL")
+clinical$primary_diagnosis <- str_replace(clinical$primary_diagnosis, "T lymphoblastic leukemia/lymphoma", "TALL")
+clinical$primary_diagnosis <- str_replace(clinical$primary_diagnosis, "Not Reported", "Unknown")
+colnames(clinical) <- c("TARGET USI","primary_diagnosis","tissue_or_organ_of_origin")
+
+############################################################
+protein_count_P2 <-  m_update #ONLY 19K PROTEIN CODING GENES
+new_P2_clinvalsup<-data.frame(P2_Target_All_clindata_valsup$`TARGET USI`,P2_Target_All_clindata_valsup$Group)
+
+expdesign <- data.frame(colnames(m_update), substr(colnames(m_update), 1,16))
+colnames(expdesign) <- c("sample", "TARGET USI")
+
+#join Clinical and expdesign to together by "target USI" 
+expdesign <- dplyr::right_join(expdesign, clinical, by = "TARGET USI")
+
+#clean the table to remove patients for which no sqmple where collected
+expdesign <-na.omit(expdesign)
+
+row.names(expdesign) <- expdesign[,1]
+
+#join expdesign and P2_TARget_ALL_clindat_valsup to get the BALL and TALL column
+expdesign <- dplyr::right_join(P2_Target_All_clindata_valsup, expdesign, by = "TARGET USI") 
+expdesign <- as.data.frame(expdesign)
+row.names(expdesign) <- expdesign[,7] 
+#clean expdesign
+expdesign <- expdesign[,c(1,3,8,9)]
+
+#add another coluln where it joins the TLX1 and TLX3 together into TLX 
+expdesign$subgroup <- expdesign$Group
+expdesign$subgroup <- str_replace(expdesign$subgroup, "TLX1", "TLX")
+expdesign$subgroup <- str_replace(expdesign$subgroup, "TLX3", "TLX")
+
+
+
+#Replace "NA" as "Unknown" 
+expdesign <- expdesign %>%  replace_na(list(Group= "Unknown", sample="Unknown"))
+
+expdesign[,2]<- str_replace(expdesign[,2], "LMO1/2", "LMO1_2") #change the "/" in Group to "_" TO AVOID SYNTAX ERRORS
+
+table(expdesign$Group)
+
+#cleaning count matrix (protein_count_P2) 
+setdiff(colnames(protein_count_P2), row.names(expdesign)) # missing clinical info for TARGET-10-PATWYL-09A-01R so we remove it from the count matrix 
+protein_count_P2 <- protein_count_P2[, (intersect(row.names(expdesign), colnames(protein_count_P2)))]
+
+
+
+##########################################################
+###     DESEQ2 for HOXA/TAL+/TLX/LMO1_2/[BALL]     #######
+
+
+#Construct DESEQDataSet Object
+protein_count_P2<- as.matrix(protein_count_P2)
+expdesign <- as.matrix(expdesign)
+
+dds <- DESeqDataSetFromMatrix(countData=protein_count_P2, 
+                              colData=expdesign, 
+                              design= ~ Group)
+
+dds <- DESeq(dds)
+dispersion_P2 <- plotDispEsts(dds)
+P2_DE_results <- results(dds)
+
+
+
+################################################################
+#NEXT =====> USe PCA  to visualize transcription in 2 dimensions
+#################################################################
+
+
+# 1 variance stabilizing transformation 
+dds_norm <- vst(dds) #rlog() may take a long time with 50 or more samples, vst() is a much faster transformation
+# 2 use transform value to plot PCA 
+plotPCA(dds_norm, intgroup = "Group", ntop = 500, returnData = FALSE)
+plotPCA(dds_norm, intgroup = "Group", ntop = 19000, returnData = FALSE)
+plotPCA(dds_norm,intgroup = "primary_diagnosis", ntop = 19000, returnData = FALSE)
+
+
+
+
+Normexpr<-assay(dds_norm) 
+MatCount.dataframe<- data.frame(t(as.matrix(Normexpr)))
+MatCount.dataframe$SampleID= expdesign[,2]
+result_pca = pca_hist_function(MatCount.dataframe[,1:dim(Normexpr)[1]], PlotHist = FALSE, VectorToColorPCA = as.factor(MatCount.dataframe$SampleID), NameOfVectorToColor = "Samples", dim_all=TRUE, bool_facet_wrap=FALSE)
+pca.info <- pca_gene_information_function (result_pca$pca_info, dim_all=TRUE, threshold_norm=0.35)
+
+
+
+
+#to assess overall similarity between samples #function t to transpose the data matrix
+sampleDists <- dist(t(assay(dds_norm)))  
+
+sampleDistMatrix <- as.matrix(sampleDists)
+
+colors <- colorRampPalette( rev(brewer.pal(9, "Blues")) )(255)
+
+my_sample_col <- expdesign[,3]
+
+rownames(sampleDistMatrix) <- my_sample_col
+
+colnames(sampleDistMatrix) <- my_sample_col
+
+plot1 <- list(pheatmap(sampleDistMatrix, clustering_distance_rows=sampleDists, clustering_distance_cols=sampleDists,col= colors, silent = TRUE)[[4]])
+
+rownames(sampleDistMatrix) <- colnames(assay(dds_norm))
+
+colnames(sampleDistMatrix) <- colnames(assay(dds_norm))
+
+plot1[[2]] <- pheatmap(sampleDistMatrix, clustering_distance_rows=sampleDists, clustering_distance_cols=sampleDists,col=colors, silent = TRUE)[[4]]
+
+do.call(grid.arrange,c(plot1, ncol =2))
+
+
+
+#################################################################
+var_genes <- apply(assay(dds_norm), 1, var)
+var_genes <- sort(var_genes,decreasing=TRUE)
+print("calculated on top 500 ∆ genes")
+top500_var_genes=names(sort(var_genes,decreasing=TRUE)[1:500])
+highly_variable_regs <- dds_norm[top500_var_genes,]
+sampleDists <- dist(t(assay(highly_variable_regs)))
+sampleDistMatrix <- as.matrix(sampleDists)
+colors <- colorRampPalette( rev(brewer.pal(9, "Blues")) )(255)
+rownames(sampleDistMatrix) <- my_sample_col
+colnames(sampleDistMatrix) <- my_sample_col
+plot1 <- list(pheatmap(sampleDistMatrix, clustering_distance_rows=sampleDists, clustering_distance_cols=sampleDists,col=colors, silent = TRUE)[[4]])
+rownames(sampleDistMatrix) <- colnames(assay(highly_variable_regs))
+colnames(sampleDistMatrix) <- colnames(assay(highly_variable_regs))
+plot1[[2]] <- pheatmap(sampleDistMatrix, clustering_distance_rows=sampleDists, clustering_distance_cols=sampleDists,col=colors, silent = TRUE)[[4]]
+do.call(grid.arrange,c(plot1, ncol =2))
+
+```
+
+
+
+```{r}
+
+
+##################################################################################
+
+##      STANDARD CODE TO CREATE EXPDESIGN FOR OTHER DIFFERENTIAL EXPRESSION TEST #
+
+##################################################################################
+
+
+# protein_count_P2 <-  m_update
+# 
+# expdesign <- data.frame(colnames(m_update), substr(colnames(m_update), 1,16))
+# colnames(expdesign) <- c("sample", "TARGET USI")
+# expdesign <- dplyr::right_join(expdesign, clinical, by = "TARGET USI")
+# #clean the table to re,ove patients for which no sqmples where collected
+# expdesign <-na.omit(expdesign)
+# expdesign <- dplyr::right_join(P2_Target_All_clindata_valsup, expdesign, by = "TARGET USI") 
+# expdesign <- as.data.frame(expdesign)
+# row.names(expdesign) <- expdesign[,7] 
+# 
+# expdesign <- expdesign[,c(1,3,8,9)]
+# expdesign <- expdesign %>%  replace_na(list(Group= "Unknown"))
+# expdesign[,2]<- str_replace(expdesign[,2], "LMO1/2", "LMO1_2") #change the "/" in Group to "_" because of error below
+# 
+# 
+# #join the TLX1 and TLX3 together
+# expdesign$subgroup <- expdesign$Group
+# expdesign$subgroup <- str_replace(expdesign$subgroup, "TLX1", "TLX")
+# expdesign$subgroup <- str_replace(expdesign$subgroup, "TLX3", "TLX")
+# 
+# 
+# table(expdesign$Group)
+# 
+# #cleaning count matrix (protein_count_P2) 
+# setdiff(colnames(protein_count_P2), row.names(expdesign)) # missing clinical info for TARGET-10-PATWYL-09A-01R so we remove it from the count matrix 
+# protein_count_P2 <- protein_count_P2[, (intersect(row.names(expdesign), colnames(protein_count_P2)))]
+```
+
+
+```{r}
+#################################################
+   
+#     COMPARE TALL VS BALL USING DESEQ2        #
+
+################################################
+
+#Construct DESEQDataSet Object
+
+# protein_count_P2<- as.matrix(protein_count_P2)
+# #expdesign_HOXA_Ambiguous <- as.matrix(expdesign)
+# # expdesign_tALL<- na.omit(expdesign) #in case we want to do DE for just TALL 
+# # expdesign <- as_factor(expdesign)
+# 
+# #condition <- factor(c(expdesign))
+# dds_BALL_TALL <- DESeqDataSetFromMatrix(countData=protein_count_P2, 
+#                               colData=expdesign, 
+#                               design= ~ primary_diagnosis)
+# 
+# 
+# dds_BALL_TALL <- DESeq(dds_BALL_TALL)
+# dispersion_BALL_TALL <- plotDispEsts(dds_BALL_TALL)
+# P2_DE_results_BALL_TALL <- results(dds_BALL_TALL)
+# 
+# #variance stabilizing transformation 
+# dds_norm_BALL_TALL <- vst(dds_BALL_TALL) #rlog() may take a long time with 50 or more samples, vst() is a much faster transformation
+# 
+# 
+# 
+# ################################################################
+# #NEXT =====> USe PCA  to visualize transcription in 2 dimensions
+# #################################################################
+# 
+# Normexpr_BALL_TALL<-assay(dds_norm) 
+# #Normexpr<-assay(rld2[top500_var_genes,])
+# #samples2  <- c("CD4TRM","CD4TRM","CD4TRM","CD8TRM","CD4CD69","CD4CD69","CD8TRM","CD8TRM","CD4CD69","CD4CD69RA","CD4CD69RA","CD4CD69RA")
+# MatCount.dataframe_BALL_TALL<- data.frame(t(as.matrix(Normexpr_BALL_TALL)))
+# MatCount.dataframe_BALL_TALL$SampleID= expdesign[,3]
+# result_pca_BALL_TALL = pca_hist_function(MatCount.dataframe_BALL_TALL[,1:dim(Normexpr_BALL_TALL)[1]], PlotHist = FALSE, VectorToColorPCA = as.factor(MatCount.dataframe_BALL_TALL$SampleID), NameOfVectorToColor = "Samples", dim_all=TRUE, bool_facet_wrap=FALSE)
+# pca.info_BALL_TALL <- pca_gene_information_function (result_pca_BALL_TALL$pca_info, dim_all=TRUE, threshold_norm=0.35)
+# 
+# 
+# #YOUTUBE TUTORIAL
+# #1variance stablizing transformation (vst function)
+# #3 use transform value to plot PCA 
+# plotPCA(dds_norm_BALL_TALL, intgroup = "Group", ntop = 500, returnData = FALSE)
+# plotPCA(dds_norm_BALL_TALL,intgroup = "primary_diagnosis", ntop = 19000, returnData = FALSE)
+# 
+# 
+# 
+# #PCA PLOT DOES NOT LOOK LOGICAL => USE HEATMAP TO GAIN SOME CLUE TO WHY
+# # General plots (distance heatmap, PCA, ∆ heatmaps) {.tabset}
+# ## Sample distances
+# ############# Heatmap hclsut(dist) ############
+# print("calculated on all genes")
+# sampleDists <- dist(t(assay(dds_norm)))
+# #sampleDists <- dist(t(assay(vsd)))
+# sampleDistMatrix <- as.matrix(sampleDists)
+# colors <- colorRampPalette( rev(brewer.pal(9, "Blues")) )(255)
+# my_sample_col <- expdesign[,3]
+# rownames(sampleDistMatrix) <- my_sample_col
+# colnames(sampleDistMatrix) <- my_sample_col
+# plot1 <- list(pheatmap(sampleDistMatrix, clustering_distance_rows=sampleDists, clustering_distance_cols=sampleDists,col= colors, silent = TRUE)[[4]])
+# 
+# rownames(sampleDistMatrix) <- colnames(assay(dds_norm))
+# colnames(sampleDistMatrix) <- colnames(assay(dds_norm))
+# plot1[[2]] <- pheatmap(sampleDistMatrix, clustering_distance_rows=sampleDists, clustering_distance_cols=sampleDists,col=colors, silent = TRUE)[[4]]
+# do.call(grid.arrange,c(plot1, ncol =2))
+# 
+# var_genes <- apply(assay(dds_norm), 1, var)
+# var_genes <- sort(var_genes,decreasing=TRUE)
+# print("calculated on top 500 ∆ genes")
+# top500_var_genes=names(sort(var_genes,decreasing=TRUE)[1:500])
+# highly_variable_regs <- dds_norm[top500_var_genes,]
+# sampleDists <- dist(t(assay(highly_variable_regs)))
+# sampleDistMatrix <- as.matrix(sampleDists)
+# colors <- colorRampPalette( rev(brewer.pal(9, "Blues")) )(255)
+# rownames(sampleDistMatrix) <- my_sample_col
+# colnames(sampleDistMatrix) <- my_sample_col
+# plot1 <- list(pheatmap(sampleDistMatrix, clustering_distance_rows=sampleDists, clustering_distance_cols=sampleDists,col=colors, silent = TRUE)[[4]])
+# rownames(sampleDistMatrix) <- colnames(assay(highly_variable_regs))
+# colnames(sampleDistMatrix) <- colnames(assay(highly_variable_regs))
+# plot1[[2]] <- pheatmap(sampleDistMatrix, clustering_distance_rows=sampleDists, clustering_distance_cols=sampleDists,col=colors, silent = TRUE)[[4]]
+#do.call(grid.arrange,c(plot1, ncol =2))
+
+```
+
+
+
+
+```{r}
+#################################
+### COMPARE HOXA+ TO AMBIGUOUS ###
+#################################
+
+#BUILD THE SAME PIPELINE FOR P3 
+
+
+# create EMPTY MATRIX FOR P3 
+###get list of interesting files
 paths_P3 <- list.files(
-    path = 'C:/Users/nguye/OneDrive/Bureau/internshipDLAD_M1/Rscripts/GDCdata/TARGET-ALL-P3/harmonized/Transcriptome_Profiling/Gene_Expression_Quantification/',
+    path = 'GDCdata/TARGET_ALL_P3/harmonized/Transcriptome_Profiling/Gene_Expression_Quantification',
     full.name = TRUE,
     recursive = TRUE,
     pattern = '*.tsv'
   )
-#their number
+
+
+m_3 <- data.frame(substr(paths_P3[], 126,200),substr(paths_P3[],89,124))
+colnames(m_3)  <- c("file_name", "id")
+dfID2file_P3 <- query_mRNA_P3[[1]][[1]]
+dfID2file_P3 <- dfID2file_P3[,c(3,5,6,1)]
+#m_2 <- dplyr::right_join(m_2, dfID2file, by = "id")
+m_3 <- dplyr::right_join(m_3, dfID2file_P3, by = "file_name")
+
+
+
+#their numbers
 nb.samples_P3 <- length(paths_P3)
-#the short name of each file: sample ID
-sample.names_P3 <- substr(basename(paths_P3), 1, 36)
 
-sample.names_P3 <- P3_mRNA_cases
+sample.names_P3 <- m_3$cases
 
-#get transcript names from first file: paths[1]
-#skip the first 6 rows (uninteresting)
-#transcript.names_P3 <- read.delim(paths_P3[1], skip = 6, header = FALSE)[1][[1]] #get only the 1st column [1] then extract to vector [[1]]
-gene.names_P3 <- read.delim(paths_P3[1], skip = 6, header = FALSE)[2][[1]] #get only the 1st column [1] then extract to vector [[1]]
+
+#get transcript names from first file: paths[1]  
+#skip the first 6 rows (uninteresting) 
+#get only the 1st column [1] then extract to vector [[1]]
+#transcript.names <- read.delim(paths[1], skip = 6, header = FALSE)[1][[1]] 
+gene.names_P3<- read.delim(paths_P3[1], skip = 6, header = FALSE)[2][[1]]
 
 #their number  
-nb.transcripts_P3 <- length(transcript.names_P3)
+#nb.transcripts <- length(transcript.names)
 nb.genes_P3 <- length(gene.names_P3)
 nb.samples_P3 <- length(sample.names_P3)
 #create empty matrix of right size
-m_P3<- matrix(
-    nrow = nb.genes,
-    ncol = nb.samples,
+m_P3 <- data.frame(matrix(
+    nrow = nb.genes_P3,
+    ncol = nb.samples_P3,
     byrow = TRUE,
     dimnames = list(gene.names_P3,sample.names_P3)
-  )
+  ))
 
-#Fill the empty matrix with data#
+#Fill the empty matrix with data but only choosing the protein coding gene
 
 for (i in 1:length(paths_P3)) {
   print(paste0("processing file ", i, "/", nb.samples_P3, ": ", basename(paths_P3[[i]])))
-  m_P3[,i]  <- read.delim(paths_P3[[i]], skip = 6, header = FALSE)[4][[1]]
+  df_P3  <- read.delim(paths_P3[[i]], skip = 6, header = FALSE)
+  m_P3[,i]  <- df_P3[4][[1]]
 }
 
+#write.csv(m_P3, "RNASeq_P3.csv")
 
-write.table(m_P3, "RNASeq_P3.csv")
+
+#Assign column names to the df to manipulate it better
+colnames(df_P3) <-c("geneID", "genename", "genetype", "unstranded", "first_strand", "second_strand", "tpm", "fpkm", "fpkm_uq")
+
+#choosing only protein coding genes
+filtered_df_P3 <- filter(df_P3, genetype == "protein_coding")
+
+# protein_count_P3 contains only protein coding genes of 135 patients 
+protein_count_P3 <- subset(m_P3, rownames(m_P3) %in% filtered_df_P3$genename)
+
+#noticing the column's names have changed, using the gsub function to replace the "." by the "-" to match the patientID from other original data
+names(protein_count_P3) <- gsub(x = names(protein_count_P3), pattern = "\\.", replacement = "-")  
+
+
+###########################################################################################
+setwd("C:/Users/nguye/OneDrive/Bureau/internshipDLAD_M1/R_scripts/")
+
+#1   CREATE COUNT DATA  AND colDATA P3 
+
+P3_mRNA_count_data <- protein_count_P3
+
+
+P3_mRNa_colData <- read_xlsx("GDCdata/TARGET_ALL_P3/harmonized/Clinical/Clinical_Supplement/b524f6f8-32dd-4edc-abbf-ae55fe533a67/TARGET_ALL_ClinicalData_Phase_III_20210811.xlsx")
+
+P3_mRNa_colData <- P3_mRNa_colData[,c(1,17)]
+
+#2  change the column name of P2_mRNA_countdata to match other table. 
+chartr(".","-",colnames(P3_mRNA_count_data))
+colnames(P3_mRNA_count_data) <- chartr(".","-",colnames(P3_mRNA_count_data))
+
+
+##############################################################
+########    P2 clinical data achieved from Biolinks  #########
+
+clinical_P3 <- GDCquery_clinic(project = "TARGET-ALL-P3", type = "clinical")
+clinical_P3 <- clinical_P3[,c("submitter_id","primary_diagnosis")]
+
+
+
+# total of 40 mixed B_AML and T_AML - #23 mixed T-AML / #17 mixed B-AML 
+clinical_P3_ambi <- filter(clinical_P3, clinical_P3$primary_diagnosis == "Mixed phenotype acute leukemia, T/myeloid, NOS" | clinical_P3$primary_diagnosis == "Mixed phenotype acute leukemia, B/myeloid, NOS" ) 
+colnames(clinical_P3_ambi) <- c("TARGET USI", "mixed_type")
+
+
+# WE AGREED TO NOT USE CLINICAL DATA WHICH WERE DOWNLOADED MANUALLY !!!!!!! 
+#clinical_P3_ambi_manual <- read_xlsx("GDCdata/TARGET_ALL_P3/harmonized/Clinical/Clinical_Supplement/b524f6f8-32dd-4edc-abbf-ae55fe533a67/TARGET_ALL_ClinicalData_Phase_III_20210811.xlsx") 
+
+clinical_P3_ambi$mixed_type <- str_replace(clinical_P3_ambi$mixed_type, "Mixed phenotype acute leukemia, T/myeloid, NOS", "T_AML")
+clinical_P3_ambi$mixed_type <- str_replace(clinical_P3_ambi$mixed_type, "Mixed phenotype acute leukemia, B/myeloid, NOS", "B_AML")
+
+
+
+
+############################################################
+######          CREATE EXPDESIGN_P3       ##################
+
+expdesign_P3 <- data.frame(colnames(protein_count_P3), substr(colnames(protein_count_P3), 1,22))
+colnames(expdesign_P3) <- c("sample", "TARGET USI")
+
+# intersected_targer_usi <- intersect(expdesign_P3$`TARGET USI`, clinical_P3_ambi$`TARGET USI`)
+
+#join expdesign_P3 and clinical_P3_ambi to gain mixed type ambiguous leukemia 
+expdesign_P3a <- dplyr::inner_join(expdesign_P3,clinical_P3_ambi, by = "TARGET USI" )
+
+#clean the table to remove patients for which no sqmple where collected
+expdesign_P3 <-na.omit(expdesign_P3)
+row.names(expdesign_P3) <- expdesign_P3[,1]
+expdesign_P3 <- as.data.frame(expdesign_P3)
+
+
+# CHECK THE NUMBERS OF B-AML AND T-AML TO ENSURE IT REMAIN CORRECTLTY AFTER ALL THE JOIN;
+table(expdesign_P3$mixed_type)
+
+#cleaning count matrix (protein_count_P2) 
+setdiff(colnames(protein_count_P2), row.names(expdesign)) # missing clinical info for TARGET-10-PATWYL-09A-01R so we remove it from the count matrix 
+protein_count_P2 <- protein_count_P2[, (intersect(row.names(expdesign), colnames(protein_count_P2)))]
+
+
+
+#########------------------ DESEQ2 for HOXA/TAL+/TLX/LMO1_2/[BALL]-------------------------#######     
+#Construct DESEQDataSet Object
+protein_count_P2<- as.matrix(protein_count_P2)
+expdesign <- as.matrix(expdesign)
+
+dds <- DESeqDataSetFromMatrix(countData=protein_count_P2, 
+                              colData=expdesign, 
+                              design= ~ Group)
+
+dds <- DESeq(dds)
+dispersion_P3 <- plotDispEsts(dds)
+P2_DE_results <- results(dds)
+
+
+
+################################################################
+#NEXT =====> USe PCA  to visualize transcription in 2 dimensions
+#################################################################
+
+#YOUTUBE TUTORIAL
+# 1 variance stabilizing transformation 
+dds_norm <- vst(dds) #rlog() may take a long time with 50 or more samples, vst() is a much faster transformation
+# 2 use transform value to plot PCA 
+plotPCA(dds_norm, intgroup = "Group", ntop = 500, returnData = FALSE)
+plotPCA(dds_norm, intgroup = "Group", ntop = 19000, returnData = FALSE)
+plotPCA(dds_norm,intgroup = "primary_diagnosis", ntop = 19000, returnData = FALSE)
+
+
+Normexpr<-assay(dds_norm) 
+#Normexpr<-assay(rld2[top500_var_genes,])
+MatCount.dataframe<- data.frame(t(as.matrix(Normexpr)))
+MatCount.dataframe$SampleID= expdesign[,2]
+result_pca = pca_hist_function(MatCount.dataframe[,1:dim(Normexpr)[1]], PlotHist = FALSE, VectorToColorPCA = as.factor(MatCount.dataframe$SampleID), NameOfVectorToColor = "Samples", dim_all=TRUE, bool_facet_wrap=FALSE)
+pca.info <- pca_gene_information_function (result_pca$pca_info, dim_all=TRUE, threshold_norm=0.35)
+
+
+
+print("calculated on all genes")
+sampleDists <- dist(t(assay(dds_norm)))  #to assess overall similarity between samples #function t totransposethedatamatrix
+
+sampleDistMatrix <- as.matrix(sampleDists)
+
+colors <- colorRampPalette( rev(brewer.pal(9, "Blues")) )(255)
+
+my_sample_col <- expdesign[,3]
+rownames(sampleDistMatrix) <- my_sample_col
+colnames(sampleDistMatrix) <- my_sample_col
+plot1 <- list(pheatmap(sampleDistMatrix, clustering_distance_rows=sampleDists, clustering_distance_cols=sampleDists,col= colors, silent = TRUE)[[4]])
+
+rownames(sampleDistMatrix) <- colnames(assay(dds_norm))
+colnames(sampleDistMatrix) <- colnames(assay(dds_norm))
+plot1[[2]] <- pheatmap(sampleDistMatrix, clustering_distance_rows=sampleDists, clustering_distance_cols=sampleDists,col=colors, silent = TRUE)[[4]]
+do.call(grid.arrange,c(plot1, ncol =2))
+
+var_genes <- apply(assay(dds_norm), 1, var)
+var_genes <- sort(var_genes,decreasing=TRUE)
+print("calculated on top 500 ∆ genes")
+top500_var_genes=names(sort(var_genes,decreasing=TRUE)[1:500])
+highly_variable_regs <- dds_norm[top500_var_genes,]
+sampleDists <- dist(t(assay(highly_variable_regs)))
+sampleDistMatrix <- as.matrix(sampleDists)
+colors <- colorRampPalette( rev(brewer.pal(9, "Blues")) )(255)
+rownames(sampleDistMatrix) <- my_sample_col
+colnames(sampleDistMatrix) <- my_sample_col
+plot1 <- list(pheatmap(sampleDistMatrix, clustering_distance_rows=sampleDists, clustering_distance_cols=sampleDists,col=colors, silent = TRUE)[[4]])
+rownames(sampleDistMatrix) <- colnames(assay(highly_variable_regs))
+colnames(sampleDistMatrix) <- colnames(assay(highly_variable_regs))
+plot1[[2]] <- pheatmap(sampleDistMatrix, clustering_distance_rows=sampleDists, clustering_distance_cols=sampleDists,col=colors, silent = TRUE)[[4]]
+do.call(grid.arrange,c(plot1, ncol =2))
+
 ```
 
 
+```
 
 
-#########################################################################################################################
-#########################################################################################################################
 ```{r}
-
-
-#######################################################################
-#STEP1 - Differential Expression in Target_ALL_P2 Using DeSeq2  #######
-#######################################################################
-library(DESeq2)
-library(tidyverse)
-library(readxl)
-
-############################################
-## Step 1 - create countdata and colData ###
-############################################
-
-#1.1 count data 
-P2_mRNA_count_data <- read.csv("C:/Users/nguye/OneDrive/Bureau/internshipDLAD_M1/R_scripts/RNASeq_P2.csv", header = FALSE, sep = "\t")
-as.data.frame(P2_mRNA_count_data, sep = "\t")
-head(P2_mRNA_count_data)
-
-#1.2 colData = sample's info 
-P2_mRNa_colData <- read_xlsx("C:/Users/nguye/OneDrive/Bureau/internshipDLAD_M1/R_scripts/GDCdata/TARGET-ALL-P2/harmonized/Clinical/TARGET_ALL_ClinicalData_Phase_II_Validation_20211118_modified.xlsx")
-P2_mRNa_colData <- data.frame(sample = P2_mRNa_colData$`TARGET USI`, type = P2_mRNa_colData$`Cell of Origin`)
-
-
-#making sure the rowname in colData match the column name in countdata
-
-intersect(m[])
-
-#Step 2 
-
-
-
 ```
 
 
 
-##################################################################################################################################################################################################################################################
+
+
+
+
 ```{r}
 #DownLoad data Storage 
-
 saveRDS(tAll_P2_SNV_all, file = "C:/Users/nguye/OneDrive/Bureau/internshipDLAD_M1/R_scripts/DownloadedData/tALL_P2_SNV_all.rds")
 saveRDS(tAll_P3_SNV_all, file = "C:/Users/nguye/OneDrive/Bureau/internshipDLAD_M1/R_scripts/DownloadedData/tALL_P3_SNV_all.rds")
   
     
+```
+
+
+
+
+
+
+```{r}
+#clean scritps 
+#
 ```
 
 
