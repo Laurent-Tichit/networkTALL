@@ -51,7 +51,7 @@ def rwr(network_file, weights_file, outfile):
 
 if __name__ == "__main__":
 	# change this line to suit your needs
-	rwrd = "/home/tichit/sync/Recherche/AnnieNguyen/networkTALL/misc_code/RWR"
+	rwrd = "."
 
 	# input network file
 	network_file = os.path.join(rwrd, "data/HI-union.tsv")
