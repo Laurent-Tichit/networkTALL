@@ -1,4 +1,4 @@
-#!/usr/bin/python3
+#!/usr/bin/env python3
 
 import graph_tool.all as gt
 # import matplotlib
@@ -6,7 +6,7 @@ import csv, os
 # import pathlib
 
 def rwr(network_file, weights_file, outfile):
-	# should be a 2-column CSV of edge list. And edge is a pair of nodes.
+	# should be a 2-column CSV of edges list. And edge is a pair of nodes.
 	g = gt.load_graph_from_csv(network_file, csv_options={'delimiter': '\t'})
 
 	# create dict, to be able to get node object from node name
