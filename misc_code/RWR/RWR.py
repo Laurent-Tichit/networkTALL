@@ -24,12 +24,14 @@ def rwr(network_file, weights_file, outfile):
 		g.vp.pers[n] = weight
 
 	# returns the distribution vector, and the number of iterations done
-	v_distrib = gt.graph_tool.centrality.pagerank(g,
+	v_distrib, nb_iter = gt.graph_tool.centrality.pagerank(g,
 						   pers=g.vp.pers,
-						   damping=0.5,
+						   damping=0.95,
 						   epsilon=1e-09,
-						   max_iter=g.num_edges())
+						   max_iter=g.num_edges(),
+						   ret_iter=True)
 
+	print(f"{nb_iter} iterations done")
 	# adds the vector distribution to the graph (so that if we save the graph, the node values will be saved)
 	g.vp.v_distrib = v_distrib
 
@@ -54,13 +56,15 @@ if __name__ == "__main__":
 	rwrd = "."
 
 	# input network file
-	network_file = os.path.join(rwrd, "data/HI-union.tsv")
+	network_file = os.path.join(rwrd, "data/PPI_HiUnion_LitBM_APID_gene_names_190123.tsv")
 
-	# input weights file: weigths are either binary (0 or 1) or "-log(p-value)" to have low p-value -> big number and high p-value -> low number
-	weights_file = os.path.join(rwrd, "data/DiffExpr_weights.tsv")
+	# input weights file: weigths are either binary (0 or 1) or "-log(p-value)" to have low p-value -> big number and high p-value -> low number. It shouldn't contain any header
+	# weights_file = os.path.join(rwrd, "data/HOXA_tAML_padj_neglog_RWR.tsv")
+	weights_file = os.path.join(rwrd, "data/tAML_P3_SNV_polyphen_15390_nodes.tsv")
 
 	# output file 
-	outfile = os.path.join(rwrd, "output/RW_HI-union.tsv")
+	# outfile = os.path.join(rwrd, "output/RW_HOXA_tAML.tsv")
+	outfile = os.path.join(rwrd, "output/RW_tAML_P3.tsv")
 
 	# # optional
 	# wd = os.getcwd()
