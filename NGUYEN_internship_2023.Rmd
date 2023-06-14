@@ -1,0 +1,1367 @@
+---
+title: "t-ALL_project_internshipM1"
+author: "HoangAnhNguyen"
+date: "2023-04-03"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r}
+#if (!require("BiocManager", quietly = TRUE))
+#install.packages("BiocManager")
+#BiocManager::install("TCGAbiolinks")
+#BiocManager::install("DESeq2")
+
+```
+
+```{r, message = FALSE}
+library(TCGAbiolinks)
+library(dplyr)
+library(DT)
+library(ggplot2)
+library(readxl)
+library(stringr)
+library(DESeq2)
+library(tidyverse)
+library(readxl)
+library(pheatmap)
+library(gridExtra)
+library(dichromat)
+library(RColorBrewer)
+library(ggrepel)
+library(tidyr)
+library(rlang)
+library(ade4)
+library(hrbrthemes)
+library(viridis)
+source("C:/Users/nguye/OneDrive/Bureau/internshipDLAD_M1/R_scripts/PCA_colorblind.R")
+
+
+
+setwd("C:/Users/nguye/OneDrive/Bureau/internshipDLAD_M1/R_scripts")
+```
+
+
+
+```{r FETCH DATA from project P2 + project P3 + project AML } 
+#Project P2 contains T-ALL + B-ALL
+#Project P3 contains ALAL (T-AML + B-AML)
+#Project AML contains AML 
+
+
+
+
+#Transcriptome (mRNA) P2
+Proj_P2 = "TARGET-ALL-P2"
+query_mRNA_P2 <- GDCquery(
+    project = Proj_P2,
+    data.category = "Transcriptome Profiling",
+    data.type = "Gene Expression Quantification"
+  )
+GDCdownload(query_mRNA_P2)
+expdat_mRNA_P2 <- GDCprepare(query = query_mRNA_P2)
+
+
+#Mutation (SNV) P2 
+query_SNV_P2 <- GDCquery(
+    project = Proj_P2,
+    data.category = "Simple Nucleotide Variation",
+    access = "open",
+    data.type = "Masked Somatic Mutation"
+  )
+GDCdownload(query_SNV)
+expdat_SNV_P2 <- GDCprepare(query = query_SNV_P2)
+
+################################################
+#Transcriptome (mRNA) P3
+Proj_P3 = "TARGET-ALL-P3"
+query_mRNA_P3 <- GDCquery(
+    project = Proj_P3,
+    data.category = "Transcriptome Profiling",
+    data.type = "Gene Expression Quantification"
+  )
+GDCdownload(query_mRNA_P3)
+expdat_mRNA_P3 <- GDCprepare(query = query_mRNA_P3)
+
+#Mutation (SNV) P3 
+query_SNV_P3 <- GDCquery(
+    project = Proj_P3,
+    data.category = "Simple Nucleotide Variation",
+    access = "open",
+    data.type = "Masked Somatic Mutation"
+  )
+GDCdownload(query_SNV_P3)
+expdat_SNV_P3 <- GDCprepare(query = query_SNV_P3)
+
+################################################
+#200 AML files 
+# We dont want to use 2000 samples but just 200 samples. 
+
+#mRNA AML
+# Proj_AML = "TARGET-AML"
+# query_mRNA_AML <- GDCquery(
+#     project = Proj_AML,
+#     data.category = "Transcriptome Profiling",
+#     data.type = "Gene Expression Quantification"
+#   )
+
+#AML_sample_subset <- sample(query_mRNA_AML[[1]][[1]]$cases, size=200)
+#Load RDS
+#saveRDS(AML_sample_subset, file = "C:/Users/nguye/OneDrive/Bureau/internshipDLAD_M1/R_scripts/DownloadedData/AML_sample_subset.rds")
+
+AML_sample_subset <- readRDS("C:/Users/nguye/OneDrive/Bureau/internshipDLAD_M1/R_scripts/DownloadedData/AML_sample_subset.rds")
+
+ 
+#There are samples duplicated. We will not be able to prepare it! SO I DELETED THE DUPLICATED SAMPLE BEFORE DOWNLOADING IT. 
+
+AML_sample_subset <- AML_sample_subset[!AML_sample_subset== "TARGET-20-PARSAN-03A-01R"]
+AML_sample_subset <- AML_sample_subset[!AML_sample_subset== "TARGET-20-PASVVS-04A-01R"]
+AML_sample_subset <- AML_sample_subset[!AML_sample_subset== "TARGET-20-D7-EC-mock3-85-01R"]
+AML_sample_subset <- AML_sample_subset[!AML_sample_subset== "TARGET-20-PAYHGK-Sorted-non-leukemic-09A-01R"] 
+AML_sample_subset <- AML_sample_subset[!AML_sample_subset== "TARGET-20-PAVSWX-EOI1-14A-01R"]
+AML_sample_subset <- AML_sample_subset[!AML_sample_subset== "TARGET-20-ECandCBtransferexp-ECplusTAH002-TAH002CBFcells-85-01R"]
+AML_sample_subset <- AML_sample_subset[!AML_sample_subset== "TARGET-20-PAXGES-EOI1-14A-01R"]
+AML_sample_subset <- AML_sample_subset[!AML_sample_subset== "TARGET-20-MV411D1-50A-01R"]
+AML_sample_subset <- AML_sample_subset[!AML_sample_subset== "TARGET-00-RO02239-14A-01R"]
+AML_sample_subset <- AML_sample_subset[!AML_sample_subset== "TARGET-00-RO02590-14A-01R"]
+AML_sample_subset <- AML_sample_subset[!AML_sample_subset== "TARGET-20-PAYKGV-Sorted-CD34pos-09A-01R"]
+AML_sample_subset <- AML_sample_subset[!AML_sample_subset== "TARGET-20-PAXEEY-EOI1-10A-01R"]
+AML_sample_subset <- AML_sample_subset[!AML_sample_subset== "TARGET-20-D7-Myeloid-GFP3-85-01R"]
+AML_sample_subset <- AML_sample_subset[!AML_sample_subset== "TARGET-20-PAVXME-EOI2-14A-01R"]
+AML_sample_subset <- AML_sample_subset[!AML_sample_subset== "TARGET-20-D7-EC-CBFA2T3_GLIS2-2-85-01R"]
+AML_sample_subset <- AML_sample_subset[!AML_sample_subset== "TARGET-00-RO02417-14A-01R"]
+
+##Fetch TARGET-AML
+# 
+#mRNA AML
+# Proj_AML = "TARGET-AML"
+# query_mRNA_AML <- GDCquery(
+#     project = Proj_AML,
+#     data.category = "Transcriptome Profiling",
+#     data.type = "Gene Expression Quantification",
+#     barcode = AML_sample_subset
+#   )
+#GDCdownload(query_mRNA_AML)
+#expdat_mRNA_AML <- GDCprepare(query = query_mRNA_AML)
+
+#SNV AML
+query_SNV_AML <- GDCquery(
+    project = Proj_AML,
+    data.category = "Simple Nucleotide Variation",
+    access = "open",
+    data.type = "Masked Somatic Mutation"
+  )
+GDCdownload(query_SNV_AML)
+expdat_SNV_AML <- GDCprepare(query = query_SNV_AML)
+
+
+
+```
+
+
+```{r}
+
+#retrieve the concatenated files of ALL SNV P2 + P3
+setwd("C:/Users/nguye/OneDrive/Bureau/internshipDLAD_M1/R_scripts")
+
+#concat files ALL_SNV_P3
+tAll_P3_SNV_all <- read.table(file = 'GDCdata/TARGET_ALL_P3/harmonized/Simple_Nucleotide_Variation/Masked_Somatic_Mutation/tALL_SNV_P3.tsv', header = FALSE,sep="\t")
+
+#concat files ALL_SNV_P2
+tAll_P2_SNV_all <- read.table(file = 'GDCdata/TARGET_ALL_P2/harmonized/Simple_Nucleotide_Variation/Masked_Somatic_Mutation/tALL_SNV_P2.tsv', header = FALSE, sep = "\t")
+
+
+
+```
+
+
+```{r}
+################################################################################################
+########   SUBGROUPS IN CLINICAL DATA in Target_ALL_P2 [HOXA TAL1, TAL2, TLX1, TLX3,...]########
+
+
+setwd("/home/annie/Desktop/Internship_M1_tALL/")
+setwd("C:/Users/nguye/OneDrive/Bureau/internshipDLAD_M1/R_scripts")
+
+
+P2_Target_All_clindata_valsup <- read_xlsx("GDCdata/TARGET_ALL_P2/harmonized/Clinical/TARGET_ALL_ClinicalData_Validation_Supplement_20190129.xlsx")
+P2_Target_All_clindata_valsup
+
+```
+
+
+```{r}
+############################################################################
+###########   Extract data from TRANSCRIPTOMIC DATA in Project-P2       #### 
+############################################################################
+
+setwd("C:/Users/nguye/OneDrive/Bureau/internshipDLAD_M1/R_scripts")
+
+#get list of interesting files
+paths <- list.files(
+    path = 'GDCdata/TARGET_ALL_P2/harmonized/Transcriptome_Profiling/Gene_Expression_Quantification',
+    full.name = TRUE,
+    recursive = TRUE,
+    pattern = '*.tsv'
+  )
+
+#the short name of each file: sample ID
+sample.names <- substr(basename(paths), 1, 36)
+
+#skip the first 6 rows (uninteresting)  #get only the 1st column [1] then extract to vector [[1]]
+gene.names<- read.delim(paths[1], skip = 6, header = FALSE)[2][[1]]
+
+
+#THEIR NUMBERS  
+nb.samples <- length(paths)
+nb.genes <- length(gene.names)
+
+#CORRECTION of THE MIS-ORDERED FILE NAMES AND SAMPLES NAMES
+m_2 <- data.frame(substr(paths[], 126,200),substr(paths[],89,124))
+colnames(m_2)  <- c("file_name", "id")
+dfID2file <- query_mRNA_P2[[1]][[1]]
+dfID2file <- dfID2file[,c(3,5,6,1)]
+m_2 <- dplyr::right_join(m_2, dfID2file, by = "file_name")
+sample.names <- m_2$cases
+
+
+#create empty matrix of the right size
+m <- data.frame(matrix(
+    nrow = nb.genes,
+    ncol = nb.samples,
+    byrow = TRUE,
+    dimnames = list(gene.names,sample.names)
+  ))
+
+#Fill the empty matrix with data but only choosing the protein coding gene
+for (i in 1:length(paths)) {
+  print(paste0("processing file ", i, "/", nb.samples, ": ", basename(paths[[i]])))
+  df  <- read.delim(paths[[i]], skip = 6, header = FALSE)
+  m[,i]  <- df[4][[1]]
+}
+
+#download the matrix m (contains gene counts of each patient in project P2 ) in csv form
+write.csv(m, "RNASeq_P2.csv")
+
+
+#Assign column names to the df to manipulate it better
+colnames(df) <-c("geneID", "genename", "genetype", "unstranded", "first_strand", "second_strand", "tpm", "fpkm", "fpkm_uq")
+
+#Obtain only protein coding genes
+filtered_df <- filter(df, genetype == "protein_coding")
+
+# m_update contain only protein coding genes of 532 patients 
+m_update <- subset(m, rownames(m) %in% filtered_df$genename)
+
+
+#noticing the column's names have changed, using the gsub function to replace the "." by the "-" to match the patientID from other original data  
+names(m_update) <- gsub(x = names(m_update), pattern = "\\.", replacement = "-") 
+names(m) <- gsub(x = names(m), pattern = "\\.", replacement = "-")
+
+
+
+
+
+
+
+
+
+```
+
+
+
+```{r}
+#######################################################################
+######## Differential Expression in Target_ALL_P2 Using DeSeq2  #######
+#######################################################################
+
+
+
+# BUILD experimental design (expdesign) for DESeq
+
+setwd("C:/Users/nguye/OneDrive/Bureau/internshipDLAD_M1/R_scripts")
+
+#1   CREATE COUNT DATA  AND colDATA
+P2_mRNA_count_data <- read.csv("RNASeq_P2.csv", header = TRUE, sep = ",")
+as.data.frame(P2_mRNA_count_data, sep = "\t")
+
+P2_mRNa_colData <- read_xlsx("GDCdata/TARGET_ALL_P2/harmonized/Clinical/TARGET_ALL_ClinicalData_Phase_II_Validation_20211118.xlsx")
+
+#2  change the column name of P2_mRNA_countdata to match the other data frame. 
+chartr(".","-",colnames(P2_mRNA_count_data))
+colnames(P2_mRNA_count_data) <- chartr(".","-",colnames(P2_mRNA_count_data))
+
+
+#Retrieve P2 CLINICAL DATA using Biolinks 
+clinical <- GDCquery_clinic(project = "TARGET-ALL-P2", type = "clinical")
+clinical <- clinical[,c("submitter_id","primary_diagnosis","tissue_or_organ_of_origin")]
+
+clinical$primary_diagnosis <- str_replace(clinical$primary_diagnosis, "Precursor B-cell lymphoblastic leukemia", "BALL")
+clinical$primary_diagnosis <- str_replace(clinical$primary_diagnosis, "T lymphoblastic leukemia/lymphoma", "TALL")
+clinical$primary_diagnosis <- str_replace(clinical$primary_diagnosis, "Not Reported", "Unknown")
+colnames(clinical) <- c("TARGET USI","primary_diagnosis","tissue_or_organ_of_origin")
+
+#change name of m_update (which contains ONLY 19K PROTEIN CODING GENES) matrix to protein_count_P2 to be more clear of what this matrix is about
+protein_count_P2 <-  m_update 
+
+#subgroups of T-ALL taken from CLINICAL DATA
+new_P2_clinvalsup<-data.frame(P2_Target_All_clindata_valsupclindata_valsup$`TARGET USI`,P2_Target_All_clindata_valsup$Group)
+
+#Create a experimental design for DESEQ2
+expdesign <- data.frame(colnames(m_update), substr(colnames(m_update), 1,16))
+colnames(expdesign) <- c("sample", "TARGET USI")
+
+#join Clinical data and expdesign together by "target USI" 
+expdesign <- dplyr::right_join(expdesign, clinical, by = "TARGET USI")
+
+#clean the data frame to remove patients for which no samples were collected
+expdesign <-na.omit(expdesign)
+row.names(expdesign) <- expdesign[,1]
+
+#join expdesign and P2_TARget_ALL_clindat_valsup to get the column B-ALL and T-ALL 
+expdesign <- dplyr::right_join(P2_Target_All_clindata_valsup, expdesign, by = "TARGET USI") 
+expdesign <- as.data.frame(expdesign)
+row.names(expdesign) <- expdesign[,7] 
+
+
+#clean expdesign
+expdesign <- expdesign[,c(1,3,8,9)]
+
+#add another column where it joins the TLX1 and TLX3 together into TLX 
+expdesign$subgroup <- expdesign$Group
+expdesign$subgroup <- str_replace(expdesign$subgroup, "TLX1", "TLX")
+expdesign$subgroup <- str_replace(expdesign$subgroup, "TLX3", "TLX")
+
+
+
+#Replace subgroup "NA" as "Unknown" in T-ALL, Replace unknown subgroups of B-ALL as "BALL" in B-ALL 
+expdesign <- expdesign %>% replace_na(list(Group= "Unknown", sample="Unknown"))
+expdesign[,2]<- str_replace(expdesign[,2], "LMO1/2", "LMO1_2") #change the "/" in Group to "_" TO AVOID SYNTAX ERRORS
+table(expdesign$Group)
+expdesign1$Group[265:531] <- "BALL"
+  
+#clean count matrix (protein_count_P2) 
+setdiff(colnames(protein_count_P2), row.names(expdesign)) #missing clinical info for TARGET-10-PATWYL-09A-01R so we remove it from the count matrix 
+protein_count_P2 <- protein_count_P2[, (intersect(row.names(expdesign), colnames(protein_count_P2)))]
+```
+
+
+```{r}
+#############################################################################
+###     DESEQ2 for HOXA/TAL+/TLX/LMO1_2/ unknown subgroup of B-ALL     #######
+
+
+#Construct DESEQDataSet Object
+protein_count_P2<- as.matrix(protein_count_P2)
+expdesign <- as.matrix(expdesign)
+
+dds <- DESeqDataSetFromMatrix(countData=protein_count_P2, 
+                              colData=expdesign, 
+                              design= ~ Group)
+
+dds <- DESeq(dds)
+dispersion_P2 <- plotDispEsts(dds)
+P2_DE_results <- results(dds)
+
+
+
+################################################################
+#NEXT =====> USe PCA  to visualize transcription in 2 dimensions
+#################################################################
+
+
+# 1 variance stabilizing transformation //// #rlog() may take a long time with 50 or more samples, vst() is a much faster transformation 
+dds_norm <- vst(dds) 
+
+# 2 use transformed values to plot PCA 
+plotPCA(dds_norm, intgroup = "Group", ntop = 19000, returnData = FALSE)
+plotPCA(dds_norm,intgroup = "primary_diagnosis", ntop = 19000, returnData = FALSE)
+
+
+
+#PCA genes information 
+Normexpr<-assay(dds_norm) 
+MatCount.dataframe<- data.frame(t(as.matrix(Normexpr)))
+MatCount.dataframe$SampleID= expdesign[,2]
+result_pca = pca_hist_function(MatCount.dataframe[,1:dim(Normexpr)[1]], PlotHist = FALSE, VectorToColorPCA = as.factor(MatCount.dataframe$SampleID), NameOfVectorToColor = "Samples", dim_all=TRUE, bool_facet_wrap=FALSE)
+pca.info <- pca_gene_information_function (result_pca$pca_info, dim_all=TRUE, threshold_norm=0.35)
+
+
+
+
+#to assess overall similarity between samples #function t to transpose the data matrix
+sampleDists <- dist(t(assay(dds_norm)))  
+sampleDistMatrix <- as.matrix(sampleDists)
+colors <- colorRampPalette( rev(brewer.pal(9, "Blues")) )(255)
+my_sample_col <- expdesign[,3]
+rownames(sampleDistMatrix) <- my_sample_col
+colnames(sampleDistMatrix) <- my_sample_col
+plot1 <- list(pheatmap(sampleDistMatrix, clustering_distance_rows=sampleDists, clustering_distance_cols=sampleDists,col= colors, silent = TRUE)[[4]])
+rownames(sampleDistMatrix) <- colnames(assay(dds_norm))
+colnames(sampleDistMatrix) <- colnames(assay(dds_norm))
+plot1[[2]] <- pheatmap(sampleDistMatrix, clustering_distance_rows=sampleDists, clustering_distance_cols=sampleDists,col=colors, silent = TRUE)[[4]]
+do.call(grid.arrange,c(plot1, ncol =2))
+
+
+
+#################################################################
+var_genes <- apply(assay(dds_norm), 1, var)
+var_genes <- sort(var_genes,decreasing=TRUE)
+print("calculated on top 500 ∆ genes")
+top500_var_genes=names(sort(var_genes,decreasing=TRUE)[1:500])
+highly_variable_regs <- dds_norm[top500_var_genes,]
+sampleDists <- dist(t(assay(highly_variable_regs)))
+sampleDistMatrix <- as.matrix(sampleDists)
+colors <- colorRampPalette( rev(brewer.pal(9, "Blues")) )(255)
+rownames(sampleDistMatrix) <- my_sample_col
+colnames(sampleDistMatrix) <- my_sample_col
+plot1 <- list(pheatmap(sampleDistMatrix, clustering_distance_rows=sampleDists, clustering_distance_cols=sampleDists,col=colors, silent = TRUE)[[4]])
+rownames(sampleDistMatrix) <- colnames(assay(highly_variable_regs))
+colnames(sampleDistMatrix) <- colnames(assay(highly_variable_regs))
+plot1[[2]] <- pheatmap(sampleDistMatrix, clustering_distance_rows=sampleDists, clustering_distance_cols=sampleDists,col=colors, silent = TRUE)[[4]]
+do.call(grid.arrange,c(plot1, ncol =2))
+
+```
+
+
+
+
+
+```{r}
+############################################################
+########## COMPARE HOXA+ TO AMBIGUOUS ALAL  ################
+
+
+
+#BUILD THE SAME PIPELINE FOR P3 
+#create a MATRIX FOR P3 DATA
+
+#get list of interesting files
+paths_P3 <- list.files(
+    path = '/home/annie/Desktop/Internship_M1_tALL/Gene_Expression_Quantification_P3',
+    full.name = TRUE,
+    recursive = TRUE,
+    pattern = '*.tsv'
+  )
+
+m_3 <- data.frame(substr(paths_P3[], 111,186),substr(paths_P3[],74,109))
+colnames(m_3)  <- c("file_name", "id")
+dfID2file_P3 <- query_mRNA_P3[[1]][[1]]
+dfID2file_P3 <- dfID2file_P3[,c(3,5,6,1)]
+m_3 <- dplyr::right_join(m_3, dfID2file_P3, by = "file_name")
+
+#their numbers
+nb.samples_P3 <- length(paths_P3)
+sample.names_P3 <- m_3$cases
+
+#get transcript names from first file: paths[1]  
+#skip the first 6 rows (uninteresting) 
+#get only the 1st column [1] then extract to vector [[1]]
+#transcript.names <- read.delim(paths[1], skip = 6, header = FALSE)[1][[1]] 
+gene.names_P3<- read.delim(paths_P3[1], skip = 6, header = FALSE)[2][[1]]
+
+#their numbers
+nb.genes_P3 <- length(gene.names_P3)
+nb.samples_P3 <- length(sample.names_P3)
+
+
+#create empty matrix of right size
+m_P3 <- data.frame(matrix(
+    nrow = nb.genes_P3,
+    ncol = nb.samples_P3,
+    byrow = TRUE,
+    dimnames = list(gene.names_P3,sample.names_P3)
+  ))
+
+#Fill the empty matrix with data but only choosing the protein coding gene
+for (i in 1:length(paths_P3)) {
+  print(paste0("processing file ", i, "/", nb.samples_P3, ": ", basename(paths_P3[[i]])))
+  df_P3  <- read.delim(paths_P3[[i]], skip = 6, header = FALSE)
+  m_P3[,i]  <- df_P3[4][[1]]
+}
+
+#download the P3 matrix (m_P3) in csv form 
+write.csv(m_P3, "RNASeq_P3.csv")
+
+
+#Assign column names to the df to manipulate it better
+colnames(df_P3) <-c("geneID", "genename", "genetype", "unstranded", "first_strand", "second_strand", "tpm", "fpkm", "fpkm_uq")
+
+#choosing only protein coding genes
+filtered_df_P3 <- filter(df_P3, genetype == "protein_coding")
+
+# protein_count_P3 contains only protein coding genes of 135 patients 
+protein_count_P3 <- subset(m_P3, rownames(m_P3) %in% filtered_df_P3$genename)
+
+#noticing the column's names have changed, using the gsub function to replace the "." by the "-" to match the patientID from other original data
+names(protein_count_P3) <- gsub(x = names(protein_count_P3), pattern = "\\.", replacement = "-")  
+
+
+########################################################
+#               DESEQ                                  #
+#1   CREATE COUNT DATA  AND colDATA for P3 
+
+#count data P3
+P3_mRNA_count_data <- protein_count_P3
+
+
+# P3_mRNa_colData <- read_xlsx("GDCdata/TARGET_ALL_P3/harmonized/Clinical/Clinical_Supplement/b524f6f8-32dd-4edc-abbf-ae55fe533a67/TARGET_ALL_ClinicalData_Phase_III_20210811.xlsx")
+# 
+# P3_mRNa_colData <- P3_mRNa_colData[,c(1,17)]
+# 
+# #2  change the column name of P2_mRNA_countdata to match other table. 
+# chartr(".","-",colnames(P3_mRNA_count_data))
+# colnames(P3_mRNA_count_data) <- chartr(".","-",colnames(P3_mRNA_count_data))
+
+
+
+#ColDataP3 =  P3 clinical data using Biolinks
+clinical_P3 <- GDCquery_clinic(project = "TARGET-ALL-P3", type = "clinical")
+clinical_P3 <- clinical_P3[,c("submitter_id","primary_diagnosis")]
+
+##### In coldata P3 => total of 40 mixed B_AML and T_AML - #23 mixed T-AML / #17 mixed B-AML 
+clinical_P3_ambi <- filter(clinical_P3, clinical_P3$primary_diagnosis == "Mixed phenotype acute leukemia, T/myeloid, NOS" | clinical_P3$primary_diagnosis == "Mixed phenotype acute leukemia, B/myeloid, NOS" ) 
+colnames(clinical_P3_ambi) <- c("TARGET USI", "Group")
+
+
+# WE AGREED TO NOT USE CLINICAL DATA WHICH WERE DOWNLOADED MANUALLY !!!!!!! 
+#clinical_P3_ambi_manual <- read_xlsx("GDCdata/TARGET_ALL_P3/harmonized/Clinical/Clinical_Supplement/b524f6f8-32dd-4edc-abbf-ae55fe533a67/TARGET_ALL_ClinicalData_Phase_III_20210811.xlsx") 
+
+clinical_P3_ambi$Group <- str_replace(clinical_P3_ambi$Group, "Mixed phenotype acute leukemia, T/myeloid, NOS", "T_AML")
+clinical_P3_ambi$Group <- str_replace(clinical_P3_ambi$Group, "Mixed phenotype acute leukemia, B/myeloid, NOS", "B_AML")
+
+
+#CREATE EXPDESIGN_P3  
+expdesign_P3 <- data.frame(colnames(protein_count_P3), substr(colnames(protein_count_P3), 1,22))
+colnames(expdesign_P3) <- c("sample", "TARGET USI")
+
+# intersected_target_usi <- intersect(expdesign_P3$`TARGET USI`, clinical_P3_ambi$`TARGET USI`)
+
+#join expdesign_P3 and clinical_P3_ambi to gain mixed type ambiguous leukemia 
+expdesign_P3 <- dplyr::inner_join(expdesign_P3,clinical_P3_ambi, by = "TARGET USI" )
+
+#clean the table to remove patients for which no sqmple where collected
+#expdesign_P3 <-na.omit(expdesign_P3)
+row.names(expdesign_P3) <- expdesign_P3[,1]
+expdesign_P3 <- as.data.frame(expdesign_P3)
+
+
+#NOTICE: 
+# CLINICAL DATA P3 PROVIDED WITH 23 B_AML AND 17 T_AML 
+# BUT AFTER ALL THE JOINING, THERE ARE MULTIPLE SAMPLES OF THE SAME TARGET USI AS WELL AS TARGET USI WHOM HAVE NO SAMPLES
+# SO THE FINAL NUMBERS OF B_AML AND T_AML == 20 AND 20 RESPECTIVELY
+
+
+##########################################################
+#####       DESEQ2 for HOXA VS AMBIGUOUS  ALAL    ########     
+##########################################################
+
+#Construct DESEQDataSet Object
+
+# build the mRNA RAW COUNT TABLE for [Hoxa + the Ambiguous]  
+expdesign <- as.data.frame(expdesign)
+protein_count_P2_P3 <- cbind(protein_count_P2,protein_count_P3)
+protein_count_P3_40cases_ambi <- subset(protein_count_P3, select = colnames(protein_count_P3) %in% rownames(expdesign_P3)) 
+protein_count_P2_HOXA_33cases <- subset(protein_count_P2, select = colnames(protein_count_P2) %in% rownames(expdesign[(expdesign$Group=="HOXA"), ]))
+protein_count_P2_P3_HOXA_ambiguous <- cbind(protein_count_P3_40cases_ambi , protein_count_P2_HOXA_33cases)
+
+
+#CREATE EXPDESIGN_HOXA_AMBI 
+expdesign_HOXA_ambi <- data.frame(colnames(protein_count_P2_P3_HOXA_ambiguous)) #73rows
+colnames(expdesign_HOXA_ambi) <- ("sample")
+expdesign_HOXA_ambi <- data.frame(expdesign_HOXA_ambi,tidyr::extract(expdesign_HOXA_ambi, sample, c('TARGET USI','DATE'), '(\\w+-\\w+-\\w+)-(\\w+-\\w+)'))#73 rows
+colnames(expdesign_HOXA_ambi) = c("sample","TARGET USI", "DATE")                                  
+
+expdesign_P2_HOXA_only <- filter(expdesign, expdesign$Group == "HOXA")
+coldata_HOXA_ambi <- data.frame(expdesign_P2_HOXA_only) #33 rows
+colnames(coldata_HOXA_ambi) <- c("TARGET USI", "Group", "primary_diagnosis", "tissue_or_organ_of_origin", "subgroup")
+coldata_HOXA_ambi <- data.frame(coldata_HOXA_ambi$`TARGET USI`, coldata_HOXA_ambi$Group) #33rows
+colnames(coldata_HOXA_ambi) <- c("TARGET USI", "Group")
+coldata_HOXA_ambi <- rbind(coldata_HOXA_ambi, clinical_P3_ambi) #73 rows
+length(intersect(expdesign_HOXA_ambi$`TARGET USI`, clinical_P3_ambi$`TARGET USI`))  
+length(setdiff(expdesign_HOXA_ambi$`TARGET USI`, clinical_P3_ambi$`TARGET USI`))
+
+expdesign_HOXA_ambi <- dplyr::right_join(expdesign_HOXA_ambi, coldata_HOXA_ambi , by = "TARGET USI") #81 rows
+expdesign_HOXA_ambi <- na.omit(expdesign_HOXA_ambi)
+row.names(expdesign_HOXA_ambi) <- expdesign_HOXA_ambi$sample  
+
+
+
+# DESEQ2 of Ambiguous(T-AML vs B-AML) which is not what we looking for but it can be nice to show 
+protein_count_P2_P3_HOXA_ambiguous<- as.matrix(protein_count_P2_P3_HOXA_ambiguous)
+expdesign_HOXA_ambi <- as.matrix(expdesign_HOXA_ambi)
+dds_HOXA_ambi <- DESeqDataSetFromMatrix(countData=protein_count_P2_P3_HOXA_ambiguous, 
+                              colData=expdesign_HOXA_ambi, 
+                              design= ~ Group)
+dds_HOXA_ambi <- DESeq(dds_HOXA_ambi)
+dispersion_HOXA_ambi <- plotDispEsts(dds_HOXA_ambi)
+HOXA_ambi_DE_results <- results(dds_HOXA_ambi)
+
+                      
+
+#DESEQ2 Ambiguous vs HOXA+
+protein_count_P2_P3_HOXA_ambiguous1<- as.matrix(protein_count_P2_P3_HOXA_ambiguous)
+expdesign_HOXA_ambi1 <- as.data.frame(expdesign_HOXA_ambi)
+#expdesign_HOXA_ambi1$Group <- relevel(factor(expdesign_HOXA_ambi1$Group), ref = "HOXA")
+protein_count_P2_P3_HOXA_ambiguous1 <- protein_count_P2_P3_HOXA_ambiguous1[, rownames(expdesign_HOXA_ambi1)]  
+all(rownames(expdesign_HOXA_ambi1) == colnames(protein_count_P2_P3_HOXA_ambiguous1))
+dds_HOXA_ambi1 <- DESeqDataSetFromMatrix(countData=protein_count_P2_P3_HOXA_ambiguous1, 
+                              colData=expdesign_HOXA_ambi1, 
+                              design= ~ Group)
+dds_HOXA_ambi1 <- DESeq(dds_HOXA_ambi1)
+dispersion_HOXA_ambi1 <- plotDispEsts(dds_HOXA_ambi1)
+HOXA_T_AML_DE_results <- results(dds_HOXA_ambi1, contrast = c("Group", "HOXA","T_AML"))
+HOXA_B_AML_DE_results <- results(dds_HOXA_ambi1, contrast = c("Group", "HOXA","B_AML"))     
+
+HOXA_T_AML_DE_results <-as.data.frame(HOXA_T_AML_DE_results)
+HOXA_B_AML_DE_results <-as.data.frame(HOXA_B_AML_DE_results)
+
+HOXA_T_AML_DE_results <- HOXA_B_AML_DE_results[order(HOXA_T_AML_DE_results$padj),]
+HOXA_B_AML_DE_results <- HOXA_B_AML_DE_results[order(HOXA_B_AML_DE_results$padj),]
+
+head(HOXA_T_AML_DE_results,10)
+head(HOXA_B_AML_DE_results,10)
+
+
+# PCA  to visualize transcription in 2 dimensions ####
+# 1 variance stabilizing transformation 
+dds_norm_HOXA_ambi <- vst(dds_HOXA_ambi) #rlog() may take a long time with 50 or more samples, vst() is a much faster transformation
+
+# 2 use transform value to plot PCA 
+plotPCA(dds_norm_HOXA_ambi, intgroup = "Group", ntop = 500, returnData = FALSE)
+plotPCA(dds_norm_HOXA_ambi, intgroup = "Group", ntop = 19000, returnData = FALSE)
+
+Normexpr_HOXA_ambi<-assay(dds_norm_HOXA_ambi) 
+MatCount.dataframe_HOXA_ambi  <- data.frame(t(as.matrix(Normexpr_HOXA_ambi)))
+MatCount.dataframe_HOXA_ambi$SampleID= expdesign_HOXA_ambi[,4]
+result_pca_HOXA_ambi = pca_hist_function(MatCount.dataframe_HOXA_ambi[,1:dim(Normexpr_HOXA_ambi)[1]], PlotHist = FALSE, VectorToColorPCA = as.factor(MatCount.dataframe_HOXA_ambi$SampleID), NameOfVectorToColor = "Samples", dim_all=TRUE, bool_facet_wrap=FALSE)
+pca.info_HOXA_ambi <- pca_gene_information_function (result_pca_HOXA_ambi$pca_info, dim_all=TRUE, threshold_norm=0.35)
+
+
+print("calculated on all genes")
+sampleDists_HOXA_ambi <- dist(t(assay(dds_norm_HOXA_ambi)))  #to assess overall similarity between samples #function t totransposethedatamatrix
+
+sampleDists_HOXA_ambi_Matrix <- as.matrix(sampleDists_HOXA_ambi)
+colors <- colorRampPalette( rev(brewer.pal(9, "Blues")) )(255)
+
+
+
+
+####################################################################
+
+# my_sample_col_HOXA_ambi <- expdesign_HOXA_ambi[,3]
+# rownames(sampleDists_HOXA_ambi_Matrix) <- my_sample_col_HOXA_ambi
+# colnames(sampleDistMatrix) <- my_sample_col_HOXA_ambi #ERROR
+# plot1 <- list(pheatmap(sampleDists_HOXA_ambi_Matrix, clustering_distance_rows=sampleDists_HOXA_ambi, clustering_distance_cols=sampleDists_HOXA_ambi,col= colors, silent = TRUE)[[4]])
+# 
+# rownames(sampleDists_HOXA_ambi_Matrix) <- colnames(assay(dds_norm_HOXA_ambi))
+# colnames(sampleDists_HOXA_ambi_Matrix) <- colnames(assay(dds_norm_HOXA_ambi))
+# plot1[[2]] <- pheatmap(sampleDists_HOXA_ambi_Matrix, clustering_distance_rows=sampleDists_HOXA_ambi, clustering_distance_cols=sampleDists_HOXA_ambi,col=colors, silent = TRUE)[[4]]
+# do.call(grid.arrange,c(plot1, ncol =2))
+# 
+# var_genes_HOXA_ambi <- apply(assay(dds_norm_HOXA_ambi), 1, var)
+# var_genes_HOXA_ambi <- sort(var_genes_HOXA_ambi,decreasing=TRUE)
+# print("calculated on top 500 ∆ genes")
+# top500_var_genes_HOXA_ambi=names(sort(var_genes_HOXA_ambi,decreasing=TRUE)[1:500])
+# highly_variable_regs_HOXA_ambi <- dds_norm[top500_var_genes_HOXA_ambi,]
+# sampleDists_HOXA_ambi <- dist(t(assay(highly_variable_regs_HOXA_ambi)))
+# sampleDists_HOXA_ambi_Matrix <- as.matrix(sampleDists_HOXA_ambi)
+# 
+# colors <- colorRampPalette( rev(brewer.pal(9, "Blues")) )(255)
+# rownames(sampleDists_HOXA_ambi_Matrix) <- my_sample_col_HOXA_ambi  #ERROR 
+# 
+# colnames(sampleDistMatrix) <- my_sample_col
+# plot1 <- list(pheatmap(sampleDistMatrix, clustering_distance_rows=sampleDists, clgustering_distance_cols = sampleDists,col=colors, silent = TRUE)[[4]])
+# rownames(sampleDistMatrix) <- colnames(assay(highly_variable_regs))
+# colnames(sampleDistMatrix) <- colnames(assay(highly_variable_regs))
+# plot1[[2]] <- pheatmap(sampleDistMatrix, clustering_distance_rows=sampleDists, clustering_distance_cols=sampleDists,col=colors, silent = TRUE)[[4]]
+# do.call(grid.arrange,c(plot1, ncol =2))
+
+```
+
+
+
+```{r}
+
+# ##################################    COME BACK HERE AND CHECK!!!!!!!!!!!
+# #   Using DESeq to find  D.E. between HOXA and ALAL T-AML 
+# #################################
+# 
+# clinical_P3_tAML <- clinical_P3_ambi[(clinical_P3_ambi$Group=="T_AML"),] #23 TARGET USI of T-AML in clinical
+# rownames(clinical_P3_tAML) <- clinical_P3_tAML$`TARGET USI`
+#  
+# protein_count_tAML <- subset(protein_count_P3_subset, select = substr(colnames(protein_count_P3_subset),1,22) %in% rownames(clinical_P3_tAML))
+# protein_count_HOXA_tAML <- cbind(protein_count_P2_HOXA_33cases, protein_count_tAML) #53 columns = 20 tAML (only has 20 countdata of tAML) + 33 HOXA
+# 
+# coldata_HOXA_tAML <- rbind(clinical_P3_tAML, clin)
+
+```
+
+
+
+
+```{r}
+########################################################### 
+############## PIPELINE TO TREAT AML DATA  ################# 
+
+setwd("C:/Users/nguye/OneDrive/Bureau/internshipDLAD_M1/R_scripts/")
+# create EMPTY MATRIX FOR AML
+##get list of interesting files
+paths_AML <- list.files(
+    path = "/Users/nguye/OneDrive/Bureau/Gene_Expression_Quantification",
+    full.name = TRUE,
+    recursive = TRUE,
+    pattern = '*.tsv'
+  )
+
+
+m_order_AML <- data.frame(substr(paths_AML[], 112,187),substr(paths_AML[],75,110))
+colnames(m_order_AML)  <- c("file_name", "id")
+dfID2file_AML <- query_mRNA_AML[[1]][[1]]
+dfID2file_AML <- dfID2file_AML[,c(1,3,5,28,29)]
+m_order_AML <- dplyr::right_join(m_order_AML, dfID2file_AML, by = "file_name")
+
+
+#their numbers
+nb.samples_AML <- length(paths_AML)
+sample.names_AML <- m_order_AML$cases
+
+
+#get transcript names from first file: paths[1] 
+#skip the first 6 rows (uninteresting) 
+#get only the 1st column [1] then extract to vector [[1]]
+gene.names_AML<- read.delim(paths_AML[1], skip = 6, header = FALSE)[2][[1]]
+
+
+#their number  
+nb.genes_AML <- length(gene.names_AML)
+nb.samples_AML <- length(sample.names_AML)
+
+#create empty matrix of right size
+m_AML <- data.frame(matrix(
+    nrow = nb.genes_AML,
+    ncol = nb.samples_AML,
+    byrow = TRUE,
+    dimnames = list(gene.names_AML,sample.names_AML)
+  ))
+
+
+#Fill the empty matrix with data but only choosing the protein coding gene
+for (i in 1:length(paths_AML)) {
+  print(paste0("processing file ", i, "/", nb.samples_AML, ": ", basename(paths_AML[[i]])))
+  df_AML  <- read.delim(paths_AML[[i]], skip = 6, header = FALSE)
+  m_AML[,i]  <- df_AML[4][[1]]
+}
+
+#DOWNLOAD MATRIX m-AML in csv form
+write.csv(m_AML, "RNASeq_AML.csv")
+
+
+#Assign column names to the df to manipulate it better
+colnames(df_AML) <-c("geneID", "genename", "genetype", "unstranded", "first_strand", "second_strand", "tpm", "fpkm", "fpkm_uq")
+
+#choosing only protein coding genes
+filtered_df_AML <- filter(df_AML, genetype == "protein_coding") 
+
+# protein_count_P3 contains only protein coding genes of 184 cases(patients)
+protein_count_AML <- subset(m_AML, rownames(m_AML) %in% filtered_df_AML$genename)
+
+#noticing the column's names have changed, using the gsub function to replace the "." by the "-" to match the patientID from other original data
+names(protein_count_AML) <- gsub(x = names(protein_count_AML), pattern = "\\.", replacement = "-")  
+
+
+
+#1   CREATE COUNT DATA  AND colDATA AML from downloaded clinical AML DATA
+
+# AML_mRNA_count_data <- protein_count_AML
+# # AML_mRNa_colData <- read_xlsx("GDCdata/TARGET_ALL_P3/harmonized/Clinical/Clinical_Supplement/b524f6f8-32dd-4edc-abbf-ae55fe533a67/TARGET_ALL_ClinicalData_Phase_III_20210811.xlsx")
+# 
+# 
+# ##############################################################
+# ########    AML clinical data using Biolinks  #########
+# 
+# clinical_AML_1 <- GDCquery_clinic(project = "TARGET-AML", type = "clinical")
+# # clinical_AML <- clinical_AML[,c("submitter_id","primary_diagnosis")]
+# 
+# #AML Clinical Data
+# query_AML_clinical <- GDCquery(
+#   project = "TARGET-AML",
+#   data.category = "Clinical",
+#   access = "open",
+#   data.type = "Clinical Supplement")
+# #GDCdownload(query_AML_clinical)
+# #expdat_AML_clinical <- GDCprepare(query = query_AML_clinical)
+# 
+# #AML_type <- seq("AML", 202) 
+# clinical_AML <- data.frame(colnames(protein_count_AML), "AML")
+
+
+```
+
+```{r}
+#CREATE AN ULTIMATE COUNT MATRIX 
+
+## First: create proteint_count_AML
+protein_count_AML <- protein_count_AML[,1:184]
+vector_AML <- unlist(rep("AML", times = 184))
+coldata_AML <- data.frame(colnames(protein_count_AML) , vector_AML)
+colnames(coldata_AML) <- c("TARGET USI", "Group")  
+rownames(coldata_AML) <- coldata_AML$`TARGET USI`
+colnames(clinical) <- c("TARGET USI", "Group")
+
+
+protein_count_all <- cbind(protein_count_P2, protein_count_P3_40cases_ambi, protein_count_AML)
+
+
+clinical <- clinical[,1:2]
+expdesign <- expdesign[,1:2]
+
+
+samples_P3 <- data.frame(colnames(protein_count_P3_40cases_ambi),substr(colnames(protein_count_P3_40cases_ambi), 1,22))   
+colnames(samples_P3) <- c("samples", "TARGET USI")
+
+samples_P3 <- dplyr::right_join(samples_P3,clinical_P3_ambi, by = "TARGET USI")
+samples_P3 <- na.omit(samples_P3)
+rownames(samples_P3) <- samples_P3$samples
+samples_P3 <- samples_P3[,2:3]
+
+coldata_all <- rbind(expdesign, samples_P3, coldata_AML)
+
+expdesign_all <- coldata_all
+#rownames(expdesign_all) <- expdesign_all$`TARGET USI`
+
+
+
+#Use DESeq2 to see D.E. between HOXA (subgroup of T-ALL) and everything else 
+dds_all <- DESeqDataSetFromMatrix(countData=protein_count_all, 
+                              colData=expdesign_all, 
+                              design= ~ Group)
+
+dds_all <- DESeq(dds_all)
+dispersion_all <- plotDispEsts(dds_all)
+
+HOXA_T_AML_DE_results <- results(dds_all, contrast = c("Group", "HOXA","T_AML"))
+HOXA_B_AML_DE_results <- results(dds_all, contrast = c("Group", "HOXA","B_AML"))     
+HOXA_AML_DE_resutls <- results(dds_all, contrast = c("Group", "HOXA","AML")) 
+HOXA_B_ALL_DE_resutls <- results(dds_all, contrast = c("Group", "HOXA","Unknown")) 
+HOXA_TLX1_DE_resutls <- results(dds_all, contrast = c("Group", "HOXA","TLX1")) 
+HOXA_TLX3_DE_resutls <- results(dds_all, contrast = c("Group", "HOXA","TLX3"))
+HOXA_TAL1_DE_resutls <- results(dds_all, contrast = c("Group", "HOXA","TAL1"))
+HOXA_TAL2_DE_resutls <- results(dds_all, contrast = c("Group", "HOXA","TAL2"))
+HOXA_LMO1_2_DE_resutls <- results(dds_all, contrast = c("Group", "HOXA","LMO1_2"))
+HOXA_LMO2_LYL1_DE_resutls <- results(dds_all, contrast = c("Group", "HOXA","LMO2_LYL1"))
+HOXA_NKX2_1_DE_resutls <- results(dds_all, contrast = c("Group", "HOXA","NKX2_1"))
+
+
+##PCA for all comparision
+#1 variance stabilizing transformation
+dds_all <- vst(dds_all) #rlog() may take a long time with 50 or more samples, vst() is a much faster transformation
+
+# 2 use transformed values to plot PCA
+plotPCA(dds_all, intgroup = "Group", ntop = 500, returnData = FALSE)
+plotPCA(dds_all, intgroup = "Group", ntop = 19000, returnData = FALSE)
+
+
+#plot PCA_gene information function 
+Normexpr <- assay(dds_all) 
+MatCount.dataframe<- data.frame(t(as.matrix(Normexpr)))
+MatCount.dataframe$SampleID= expdesign_all[,2]
+result_pca = pca_hist_function(MatCount.dataframe[,1:dim(Normexpr)[1]], PlotHist = FALSE, VectorToColorPCA = as.factor(MatCount.dataframe$SampleID), NameOfVectorToColor = "Samples", dim_all=TRUE, bool_facet_wrap=FALSE)
+pca.info <- pca_gene_information_function (result_pca$pca_info, dim_all=TRUE, threshold_norm=0.35)
+
+
+#Results
+HOXA_T_AML_DE_results <- HOXA_T_AML_DE_results[order(HOXA_T_AML_DE_results$padj, decreasing = FALSE), ] 
+HOXA_T_AML_DE_results <- as.data.frame(HOXA_T_AML_DE_results)
+
+#nornalize D.E. results with -log 
+HOXA_tAML_padj_RWR <- subset(HOXA_T_AML_DE_results, select = 'padj')
+HOXA_tAML_padj_RWR$neglog <- -log(HOXA_tAML_padj_RWR$padj)
+HOXA_tAML_padj_neglog_RWR <- data.frame(rownames(HOXA_tAML_padj_RWR),HOXA_tAML_padj_RWR$neglog)
+
+sum_neglog <- sum(HOXA_tAML_padj_neglog_RWR$HOXA_tAML_padj_RWR.neglog, na.rm = TRUE) 
+
+HOXA_tAML_padj_neglog_RWR$norm_DE <- HOXA_tAML_padj_neglog_RWR$HOXA_tAML_padj_RWR.neglog/sum_neglog
+HOXA_tAML_padj_neglog_RWR <- na.omit(HOXA_tAML_padj_neglog_RWR)
+HOXA_tAML_padj_neglog_RWR <- data.frame(HOXA_tAML_padj_neglog_RWR[, c(1,3)])
+
+#Introduce human PPI network created by Cecil Beust
+nodes_Cecil <- read.delim("nodes.tsv", header = F)
+colnames(nodes_Cecil) <- "gene"
+PPInetwork <- read.delim("PPI_HiUnion_LitBM_APID_gene_names_190123.tsv")
+intersect_nodes <- intersect(nodes_Cecil$gene, HOXA_tAML_padj_neglog_RWR$rownames.HOXA_tAML_padj_RWR.)
+#14193 nodes in common
+
+
+HOXA_tAML_padj_neglog_RWR <- HOXA_tAML_padj_neglog_RWR[HOXA_tAML_padj_neglog_RWR$rownames.HOXA_tAML_padj_RWR. %in% nodes_Cecil$gene , ]
+
+
+#HEADER NEEDS TO BE NULL FOR THE PYTHON SCRIPT TO WORK
+write_tsv(HOXA_tAML_padj_neglog_RWR, "HOXA_tAML_padj_neglog_RWR.tsv", col_names = F)
+
+
+
+```
+
+
+```{r}
+#############################################################
+###                     PART 2 TREATING SNV data      ######
+#############################################################
+
+#retrieve the concat files of tALL SNV P2 + P3
+setwd("C:/Users/nguye/OneDrive/Bureau/internshipDLAD_M1/R_scripts")
+
+#concat files TALL_SNV_P3
+tAll_P3_SNV_all <- read.table(file = 'GDCdata/TARGET_ALL_P3/harmonized/Simple_Nucleotide_Variation/Masked_Somatic_Mutation/tALL_SNV_P3.tsv', header = FALSE,sep="\t")
+
+#concat files TALL_SNV_P2
+tAll_P2_SNV_all <- read.table(file = 'GDCdata/TARGET_ALL_P2/harmonized/Simple_Nucleotide_Variation/Masked_Somatic_Mutation/tALL_SNV_P2.tsv', header = FALSE, sep = "\t")
+
+
+
+#######################################################################################################
+
+#SNV P3 T_AML
+tAML_P3_SNV_polyphen <- subset(tAll_P3_SNV_all, select = c("V1","V77","V10","V16","V17","V122", "V124"))
+colnames(tAML_P3_SNV_polyphen) <- c("Hugo_symbol", "PolyPhen", "Variant_Type", "Tumor_Sample_Barcode", "Matched_Norm_Sample_Barcode", "Impact", "Variant_Class")
+tAML_P3_SNV_polyphen <- tAML_P3_SNV_polyphen[-which(tAML_P3_SNV_polyphen$PolyPhen == ""),]
+tAML_P3_SNV_polyphen$PolyPhen <- parse_number(tAML_P3_SNV_polyphen$PolyPhen)
+
+# SNV P3 - extract only T_AML's polyphen score / discard B_AML's polyphen score
+tAML_P3_SNV_polyphen <- tAML_P3_SNV_polyphen[(substr(tAML_P3_SNV_polyphen$Matched_Norm_Sample_Barcode,1,22) %in% clinical_P3_tAML$`TARGET USI`),]
+tAML_P3_SNV_polyphen <- subset(tAML_P3_SNV_polyphen, select = c("Hugo_symbol", "PolyPhen"))
+
+
+#normalize the P3 tAML polyphen score
+sum_polyphen_P3 <- sum(tAML_P3_SNV_polyphen$PolyPhen)
+tAML_P3_SNV_polyphen$PolyPhen_norm <- tAML_P3_SNV_polyphen$PolyPhen/sum_polyphen_P3
+tAML_P3_SNV_polyphen <- subset(tAML_P3_SNV_polyphen, select =c("Hugo_symbol", "PolyPhen_norm"))
+
+tAML_P3_SNV_polyphen <- tAML_P3_SNV_polyphen[order(tAML_P3_SNV_polyphen$PolyPhen_norm, decreasing = TRUE),]
+
+
+#remove duplicated genes using distinct function 
+tAML_P3_SNV_polyphen <- distinct(tAML_P3_SNV_polyphen)
+tAML_P3_SNV_polyphen <- tAML_P3_SNV_polyphen[,c(1,2)]
+
+
+#match the genes with those in Cecil Beurst's PPI network nodes 
+tAML_P3_SNV_polyphen <- tAML_P3_SNV_polyphen[tAML_P3_SNV_polyphen$Hugo_symbol %in% nodes_Cecil[,1], ]
+write_tsv(tAML_P3_SNV_polyphen, "tAML_P3_SNV_polyphen.tsv", col_names = F)
+
+
+#####################################################################################################
+
+###### SNV P2
+HOXA_SNV_polyphen <-  subset(tAll_P2_SNV_all, select = c("V1","V77","V10","V16","V17","V122", "V124"))
+colnames(HOXA_SNV_polyphen) <- c("Hugo_symbol", "PolyPhen", "Variant_Type", "Tumor_Sample_Barcode", "Matched_Norm_Sample_Barcode", "Impact", "Variant_Class")
+
+#remove genes that have no polyphen score
+HOXA_SNV_polyphen <- HOXA_SNV_polyphen[-which(HOXA_SNV_polyphen$PolyPhen == ""),]
+HOXA_SNV_polyphen$PolyPhen <- parse_number(HOXA_SNV_polyphen$PolyPhen)
+intersect(substr(HOXA_SNV_polyphen$Matched_Norm_Sample_Barcode, 1,16), expdesign_P2_HOXA_only$`TARGET USI`)
+
+#SNV2- extract only HOXA 
+HOXA_SNV_polyphen <- HOXA_SNV_polyphen[(substr(HOXA_SNV_polyphen$Matched_Norm_Sample_Barcode,1,16) %in% expdesign_P2_HOXA_only$`TARGET USI`),]
+HOXA_SNV_polyphen <- subset(HOXA_SNV_polyphen, select = c("Hugo_symbol", "PolyPhen"))
+
+##### normalize the P2 HOXA polyphen score to have sum of them = 1 
+sum_polyphen_P2 <- sum(HOXA_SNV_polyphen$PolyPhen)
+HOXA_SNV_polyphen$PolyPhen_norm <- HOXA_SNV_polyphen$PolyPhen/sum_polyphen_P2
+HOXA_SNV_polyphen <- subset(HOXA_SNV_polyphen, select =c("Hugo_symbol", "PolyPhen_norm"))
+
+
+
+#delete duplicates mutation
+HOXA_SNV_polyphen <- HOXA_SNV_polyphen[order(HOXA_SNV_polyphen$PolyPhen_norm, decreasing = FALSE),]
+HOXA_SNV_polyphen <- HOXA_SNV_polyphen[!duplicated(HOXA_SNV_polyphen$Hugo_symbol), ]
+rownames(HOXA_SNV_polyphen) <- HOXA_SNV_polyphen$Hugo_symbol
+HOXA_SNV_polyphen <- subset(HOXA_SNV_polyphen, select = PolyPhen_norm)
+colnames(HOXA_SNV_polyphen) = NULL
+
+  
+write.csv(HOXA_SNV_polyphen, "HOXA_SNV_polyphen.csv", col.names = F)
+
+
+
+# OPen the PPI network NODEs ONLY 
+PPI_nodes_only <- read_tsv("nodes.tsv")
+PPI_nodes_only <- as.data.frame(PPI_nodes_only)
+intersect(PPI_nodes_only[,1], tAML_P3_SNV_polyphen$Hugo_symbol)
+missing_nodes <- setdiff(PPI_nodes_only[,1], tAML_P3_SNV_polyphen$Hugo_symbol)
+missing_nodes_value <- rep(0, times = 15315)
+
+
+missing_nodes_df <- data.frame(missing_nodes, missing_nodes_value)
+colnames(missing_nodes_df) <- c("Hugo_symbol", "PolyPhen_norm")
+tAML_P3_SNV_polyphen_15390_nodes<- rbind(tAML_P3_SNV_polyphen, missing_nodes_df)
+rownames(tAML_P3_SNV_polyphen_15390_nodes) <- tAML_P3_SNV_polyphen_15390_nodes$Hugo_symbol
+tAML_P3_SNV_polyphen_15390_nodes <- subset(tAML_P3_SNV_polyphen_15390_nodes, select = PolyPhen_norm)
+colnames(tAML_P3_SNV_polyphen_15390_nodes) <- NULL
+
+write.csv(tAML_P3_SNV_polyphen_15390_nodes, "tAML_P3_SNV_polyphen_15390_nodes.csv", col.names = F)
+```
+
+
+```{r}
+#########################################
+#   PRODUCE ALL GRAPHES AND FIGURES     #
+
+##1 ALL DATA PRESENTATION
+
+coldata_AML$AML_TargetUSI <- substr(coldata_AML$`TARGET USI`, 1, 16)
+coldata_AML <- subset(coldata_AML, select = c(AML_TargetUSI, Group))
+colnames(coldata_AML) <- c("TARGET USI", "Group")
+rownames(coldata_AML) <- NULL
+
+clinical_all <- rbind(clinical, clinical_P3_ambi, coldata_AML)
+
+clinical_all <- clinical_all$`TARGET USI` %in% expdesign_all$`TARGET USI`
+
+
+expdesign_all_graph <- expdesign_all
+expdesign_all_graph$Group <- str_replace(expdesign_all_graph$Group,"TAL1","TALL") 
+expdesign_all_graph$Group <- str_replace(expdesign_all_graph$Group,"TLX3","TALL") 
+expdesign_all_graph$Group <- str_replace(expdesign_all_graph$Group,"TLX1","TALL") 
+expdesign_all_graph$Group <- str_replace(expdesign_all_graph$Group,"TAL2","TALL") 
+expdesign_all_graph$Group <- str_replace(expdesign_all_graph$Group,"LMO1_2","TALL") 
+expdesign_all_graph$Group <- str_replace(expdesign_all_graph$Group,"NKX2_1","TALL") 
+expdesign_all_graph$Group <- str_replace(expdesign_all_graph$Group,"HOXA","TALL") 
+expdesign_all_graph$Group <- str_replace(expdesign_all_graph$Group,"LMO2_LYL1","TALL") 
+
+expdesign_all_graph$Group[265:531] <-str_replace(expdesign_all_graph$Group[265:531], "Unknown", "BALL") 
+expdesign_all_graph$Group <- str_replace(expdesign_all_graph$Group,"Unknown","TALL") 
+
+expdesign_all_graph2 <- data.frame(table(expdesign_all_graph$Group)) 
+colnames(expdesign_all_graph2) <- c("Types_of_Leukamia", "N_of_cases")
+expdesign_all_graph_plot <- ggplot(expdesign_all_graph2, aes(x=Types_of_Leukamia, y=N_of_cases, fill = Types_of_Leukamia)) +
+  geom_bar(stat="identity", width = 0.5)+
+  geom_text(aes(label = N_of_cases), vjust = -0.5, color = "black", size = 3) +
+  scale_fill_hue()
+expdesign_all_graph_plot
+
+
+
+#pie chart reflecting the subgroup of T-ALL
+expdesign_tALL <- expdesign[1:264,]
+expdesign_tALL <- data.frame(table(expdesign_tALL$Group))
+colnames(expdesign_tALL) <- c("tALL_markers", "N_of_cases")
+myPalette <- brewer.pal(5, "Set2")
+pie(expdesign_tALL$N_of_cases, main = "T_ALL Leukaemia Markers", labels = expdesign_tALL$tALL_markers, col = myPalette, border = "white", radius = 1)
+
+
+
+
+#Average number of mutations per patients in SNV data
+
+#SNV P2 average mutation per patient 
+n_MUT_per_patients_P2 <- as.data.frame(table(tAll_P2_SNV_all$V16))
+n_MUT_per_patients_P2 <- n_MUT_per_patients_P2[order(n_MUT_per_patients_P2$Freq, decreasing = T),]
+n_MUT_per_patients_P2$TARGETUSI <- substr(n_MUT_per_patients_P2$`Var`, 1,16)
+colnames(n_MUT_per_patients_P2) <- c("Var","Freq", "TARGET USI")
+n_MUT_per_patients_P2 <- n_MUT_per_patients_P2[-which(n_MUT_per_patients_P2$Var == ""), ]
+
+#n_MUT_per_patients_P2$Group <-  substr(n_MUT_per_patients_P2$Var, 1,16) %in% clinical$`TARGET USI`
+n_MUT_per_patients_P2 <- dplyr::right_join(n_MUT_per_patients_P2,clinical, by = "TARGET USI" )
+n_MUT_per_patients_P2 <- na.omit(n_MUT_per_patients_P2)
+
+#SNV P3 avaverge mutation per patient 
+n_MUT_per_patients_P3 <- as.data.frame(table(tAll_P3_SNV_all$V16))
+n_MUT_per_patients_P3 <- n_MUT_per_patients_P3[order(n_MUT_per_patients_P3$Freq, decreasing = T),]
+n_MUT_per_patients_P3 <- n_MUT_per_patients_P3[-which(n_MUT_per_patients_P3$Var == ""), ]
+n_MUT_per_patients_P3$Var1 <- sub("^(.*?-.*?-.*?)-.*$", "\\1", n_MUT_per_patients_P3$Var1)
+clinical_P3_noNA <- na.omit(clinical_P3)
+colnames(n_MUT_per_patients_P3) <- c("TARGET USI", "Freq")
+colnames(clinical_P3_noNA)
+clinical_P3_noNA$primary_diagnosis <- str_replace(clinical_P3_noNA$primary_diagnosis, "Mixed phenotype acute leukemia, T/myeloid, NOS", "T_AML")
+clinical_P3_noNA$primary_diagnosis <- str_replace(clinical_P3_noNA$primary_diagnosis, "Mixed phenotype acute leukemia, B/myeloid, NOS", "B_AML")
+colnames(clinical_P3_noNA) <- c("TARGET USI", "Group")
+n_MUT_per_patients_P3 <- dplyr::right_join(n_MUT_per_patients_P3,clinical_P3_noNA, by = "TARGET USI" )
+n_MUT_per_patients_P3 <- na.omit(n_MUT_per_patients_P3)
+n_MUT_per_patients_P2 <- n_MUT_per_patients_P2[,c(3,2,4)]
+n_MUT_per_patients_P2_P3 <- rbind(n_MUT_per_patients_P2, n_MUT_per_patients_P3)
+n_MUT_per_patients_P2_P3 <- n_MUT_per_patients_P2_P3[n_MUT_per_patients_P2_P3$Group != "B lymphoblastic leukemia/lymphoma, NOS",]
+n_MUT_per_patients_P2_P3 <- n_MUT_per_patients_P2_P3[n_MUT_per_patients_P2_P3$Group != "Mixed phenotype acute leukemia with t(9;22)(q34;q11.2); BCR-ABL1",]
+n_MUT_per_patients_P2_P3 <- n_MUT_per_patients_P2_P3[n_MUT_per_patients_P2_P3$Group != "Mixed phenotype acute leukemia with t(v;11q23); MLL rearranged",]
+
+
+
+
+#SNV AML avaverge mutation per patient 
+AML_SNV_all <- read.delim("GDCdata/TARGET_AML/harmonized/Masked_Somatic_Mutation/SNV_AML_al.tsv", header = F)
+n_MUT_per_patients_AML <- as.data.frame(table(AML_SNV_all$V17))
+colnames(n_MUT_per_patients_AML) <- c("TARGET USI","Freq")
+clinical_AML_1 <- clinical_AML_1[c("submitter_id", "disease_type")]
+clinical_AML_1$Group <- rep(x ="AML", 2189)
+colnames(clinical_AML_1) <- c("TARGET USI", "disease_type", "Group") 
+clinical_AML_1<- clinical_AML_1[,c(1,3)]
+
+
+#NOT WORKING
+n_MUT_per_patients_AML <- dplyr::left_join(n_MUT_per_patients_AML,clinical_AML_1, by = "TARGET USI" )
+
+
+#plot 
+n_MUT_per_patients_P2_P3 %>%
+  ggplot( aes(x=Group, y=Freq, fill=Group)) +
+  geom_boxplot() +
+  scale_fill_viridis(discrete = TRUE, alpha=0.6) +
+  geom_jitter(color="black", size=0.4, alpha=0.9) +
+  theme_ipsum() +
+  theme(
+    legend.position="none",
+    plot.title = element_text(size=11)
+  ) +
+  xlab("")
+
+```
+
+
+
+```{r}
+#####################################################################
+####    RWR  to find silent players in T_AML   ############
+
+#RW DE t-AML
+#RW_HOXA_tAML <- read.delim("RW_HOXA_tAML_sorted.tsv")
+RW_HOXA_tAML1 <- read.delim("RW_tAML_DE_0.25.tsv")
+#RW MUT tAML 
+RW_P3_tAML <- read.delim("RW_tAML_P3.tsv")
+
+#colnames(RW_HOXA_tAML) <- c("gene", "weight")
+colnames(RW_HOXA_tAML1) <- c("gene", "weight")
+colnames(RW_P3_tAML) <- c("gene", "weight")
+
+#join 2 data frames together to produce a matrix that has both weights values 
+RWR_tAML <- dplyr::right_join(RW_HOXA_tAML1, RW_P3_tAML, by = "gene")
+colnames(RWR_tAML) <- c("gene", "weight_HOXA_tAML","weight_tAML")
+
+#find the lower value between DE result and Mutation score in each gene
+RWR_tAML$min_value <- apply(RWR_tAML, 1, min)
+colnames(RWR_tAML) <- c("gene", "DE_score", "MUT_score", "min_score")
+RWR_tAML <- na.omit(RWR_tAML)
+
+# #looking for top mutated genes and top highly differental expressed genes
+# RW_P3_tAML <- RW_P3_tAML[order(RW_P3_tAML$weight, decreasing = T) ,] 
+# RW_P3_tAML$gene[1:20]
+# RW_HOXA_tAML$gene[1:20]
+# RW_df_compare_20 <- data.frame(RW_P3_tAML$gene[1:20],RW_HOXA_tAML$gene[1:20], RWR_tAML$gene[1:20])
+# RW_df_compare_all_genes <- data.frame(RW_P3_tAML$gene,RW_HOXA_tAML$gene, RWR_tAML$gene)
+
+
+
+
+############################################################################################################
+
+##the 50 first rows of a df with 4 columns: gene, DE score, MUTscore, min score, ordered by column 'min score' decreasing
+RWR_tAML_minscore <- RWR_tAML[order(RWR_tAML$min_score, decreasing=T) ,]
+RWR_tAML_minscore <- RWR_tAML_minscore[1:50,]
+write.csv(RWR_tAML_minscore, "RWR_tAML_minscore.csv")
+
+#the 50 first rows of a df with  DE score before and after RWR, ordered by column 'after' decreasing
+colnames(HOXA_tAML_padj_neglog_RWR) <- c("gene","DE_score_before_RWR")
+RWR_tAML_DE_score <- dplyr::right_join(HOXA_tAML_padj_neglog_RWR,RW_HOXA_tAML , by = "gene")
+colnames(RWR_tAML_DE_score) <- c("gene","DE_score_before_RWR","DE_score_after_RWR")
+RWR_tAML_DE_score <- RWR_tAML_DE_score[order(RWR_tAML_DE_score$DE_score_after_RWR, decreasing = T),]
+RWR_tAML_DE_score_top50 <- RWR_tAML_DE_score[1:50,]
+write.csv(RWR_tAML_DE_score_top50, "RWR_tAML_DE_score_before_after_top50.csv")
+
+
+#the 50 first rows of a df with MUT score before and after RWR, ordered by column 'after' decreasing = f
+missing_gene_in_mut_tAML <- setdiff(RW_P3_tAML$gene,tAML_P3_SNV_polyphen$Hugo_symbol)
+missing_gene_in_mut_tAML <- data.frame(missing_gene_in_mut_tAML, rep(x = 0))
+colnames(missing_gene_in_mut_tAML) <- c("gene", "weight")
+colnames(tAML_P3_SNV_polyphen) <- c("gene", "weight")
+tAML_P3_SNV_polyphen <- rbind(tAML_P3_SNV_polyphen, missing_gene_in_mut_tAML)
+RW_P3_tAML <- RW_P3_tAML[order(RW_P3_tAML$weight, decreasing = T) ,]
+tAML_Mut_score_before_after <- dplyr::right_join(RW_P3_tAML, tAML_P3_SNV_polyphen , by = "gene")
+colnames(tAML_Mut_score_before_after) <- c("gene", "MUT_after","MUT_before")
+tAML_Mut_score_before_afterORDERED_top50 <- tAML_Mut_score_before_after[1:50,]
+write.csv(tAML_Mut_score_before_afterORDERED_top50, "tAML_Mut_score_before_afterORDERED_top50.csv")
+
+
+
+#the 50 first rows of a df with MUT score before and after RWR, ordered by col 'before' decreasing
+tAML_Mut_score_beforeORDERED_after_top50 <- tAML_Mut_score_before_after[order(tAML_Mut_score_before_after$MUT_before, decreasing = T) ,]
+tAML_Mut_score_beforeORDERED_after_top50 <- tAML_Mut_score_beforeORDERED_after_top50[1:50,]
+write.csv(tAML_Mut_score_beforeORDERED_after_top50, "tAML_Mut_score_beforeORDERED_after_top50.csv")
+
+RWR_tAML <- RWR_tAML[c(1,4)]
+RWR_tAML$gene[1:20]
+write.csv(RWR_tAML, "RWR_tAML_silent_players.csv")
+
+
+
+#RANK THE RW DE AND RW MUT 
+# OPEN FILES 
+RW_HOXA_tAML1 <- read.delim("RW_tAML_DE_0.25.tsv")
+colnames(RW_HOXA_tAML1) <- c("gene", "weight")
+RW_P3_tAML <- read.delim("RW_tAML_P3.tsv")
+colnames(RW_P3_tAML) <- c("gene", "weight")
+
+##ADD RANK column
+RW_HOXA_tAML1$rankDE <- rank(-RW_HOXA_tAML1$weight)
+RW_P3_tAML$rankMUT <- rank(-RW_P3_tAML$weight)
+
+#JOIN minscore with RW DE + RW MUT score
+RWR_tAML_minscore <- RWR_tAML[order(RWR_tAML$min_score, decreasing=T) ,]
+RWR_tAML_minscore <- RWR_tAML_minscore[,c(1,4)]
+RWR_tAML_minscore_rank_MUT <-  dplyr::right_join(RWR_tAML_minscore,RW_P3_tAML, by ="gene")
+RWR_tAML_minscore_rank_DE <-  dplyr::right_join(RWR_tAML_minscore,RW_HOXA_tAML1, by ="gene")
+
+RWR_tAML_minscore_rank <- dplyr::right_join(RWR_tAML_minscore_rank_MUT,RWR_tAML_minscore_rank_DE, by ="gene")
+RWR_tAML_minscore_rank <- RWR_tAML_minscore_rank[,c(1,2,4,7)]
+
+write_tsv(RWR_tAML_minscore_rank, "RWR_tAML_minscore_rank.tsv")
+
+#add the rank of tAML_DE before RW and tAML_MUT before RW into the RWR_tAML_minscore_rank df 
+# rank DE before RW
+HOXA_tAML_padj_neglog_RWR$rank_DE_beforeRW <- rank(-HOXA_tAML_padj_neglog_RWR$DE_score_before_RWR)
+
+
+# rank the MUT before RW 
+PPI_nodes_only <- read_tsv("nodes.tsv")
+PPI_nodes_only <- as.data.frame(PPI_nodes_only)
+intersect(PPI_nodes_only[,1], tAML_P3_SNV_polyphen$Hugo_symbol)
+missing_nodes <- setdiff(PPI_nodes_only[,1], tAML_P3_SNV_polyphen$Hugo_symbol)
+missing_nodes_value <- rep(0, times = 15315)
+missing_nodes_df <- data.frame(missing_nodes, missing_nodes_value)
+colnames(missing_nodes_df) <- c("Hugo_symbol", "PolyPhen_norm")
+tAML_P3_SNV_polyphen_15390_nodes<- rbind(tAML_P3_SNV_polyphen, missing_nodes_df)
+tAML_P3_SNV_polyphen_15390_nodes$rank_MUT_beforeRW <- rank(-tAML_P3_SNV_polyphen_15390_nodes$PolyPhen_norm)
+colnames(tAML_P3_SNV_polyphen_15390_nodes) <- c("gene", "MUT_rank_before_RW")
+HOXA_tAML_padj_neglog_RWR <- HOXA_tAML_padj_neglog_RWR[,c(1,3)] 
+tAML_DE_MUT_beforeRW_rank <- dplyr::right_join(HOXA_tAML_padj_neglog_RWR,tAML_P3_SNV_polyphen_15390_nodes, by ="gene")
+
+# RWR_tAML_DE_rank <- within(RWR_tAML, rank_DE_MUT <- rank(order(DE_score, MUT_score), ties.method='first'))
+# RWR_tAML_DE_rank <- RWR_tAML_DE_rank[order(RWR_tAML_DE_rank$rank_DE_MUT, decreasing = F),]
+# RWR_tAML$rank_DE <- rank(RWR_tAML$DE_score)
+# RWR_tAML$rank_MUT <- rank(RWR_tAML$MUT_score)
+# RWR_tAML_rank <- subset(RWR_tAML, select = c(rank_DE, rank_MUT))
+```
+
+
+```{r}
+#most mutated genes in P3 
+
+tAll_P3_SNV_all_mutated <- tAll_P3_SNV_all[,c(1,16)]
+tAll_P3_SNV_all_mutated <- as.data.frame(table(tAll_P3_SNV_all_mutated))
+P3_most_mutated_gene<- as.data.frame(table(tAll_P3_SNV_all$V1))
+P3_most_mutated_gene <- P3_most_mutated_gene[order(P3_most_mutated_gene$Freq, decreasing = T),]
+barplot(height= P3_most_mutated_gene$Freq[1:6], names=P3_most_mutated_gene$Var1[1:6], 
+        col= brewer.pal(n = 6, name = "RdBu"),
+        horiz=T, las=0.5,
+        main = "Most mutated genes in ALAL",
+        xlab ="Numbers of mutation",
+        ylab = "Gene names"
+        )
+
+#most mutated genes in AML
+AML_most_mutate_gene <-  as.data.frame(table(AML_SNV_all$V1))
+AML_most_mutate_gene <- AML_most_mutate_gene[order(AML_most_mutate_gene$Freq, decreasing = T),]
+barplot(height= AML_most_mutate_gene$Freq[1:6], names=AML_most_mutate_gene$Var1[1:6], 
+        col= brewer.pal(n = 6, name = "RdBu"),
+        horiz=T, las=0.5,
+        main = "Most mutated genes in AML",
+        xlab ="Numbers of mutation",
+        ylab = "Gene names"
+        )
+
+#most mutated genes in P2 
+P2_most_mutate_gene <- tAll_P2_SNV_all[,c(1,16)]
+P2_most_mutate_gene$V16 <- substr(P2_most_mutate_gene$V16, 1,16)
+colnames(P2_most_mutate_gene) <- c("gene", "TARGET USI")
+P2_most_mutate_gene_table <- as.data.frame(table(P2_most_mutate_gene$gene))
+#P2_most_mutate_gene_table <- P2_most_mutate_gene_table[order(P2_most_mutate_gene_table$gene, decreasing= T),]
+
+n_MUT_per_patients_P2 <- n_MUT_per_patients_P2[,c(3,4)]
+P2_most_mutate_gene <- dplyr::right_join(P2_most_mutate_gene,n_MUT_per_patients_P2, by = "TARGET USI", relationship= "many-to-many")
+P2_most_mutate_gene_TALL <- P2_most_mutate_gene[which(P2_most_mutate_gene$Group=="TALL"),]
+P2_most_mutate_gene_TALL <- as.data.frame(table(P2_most_mutate_gene_TALL))
+P2_most_mutate_gene <-  as.data.frame(table(P2_most_mutate_gene$gene))
+
+P2_most_mutate_gene <- P2_most_mutate_gene[order(P2_most_mutate_gene$Freq, decreasing = T),]
+barplot(height= P2_most_mutate_gene$Freq[1:6], names=P2_most_mutate_gene$Var1[1:6], 
+        col= brewer.pal(n = 6, name = "RdBu"),
+        horiz=T, las=0.5,
+        main = "Most mutated genes in TALL",
+        xlab ="Numbers of mutation",
+        ylab = "Gene names"
+        )
+
+
+
+P2_most_mutate_gene <- tAll_P2_SNV_all[,c(1,16)]
+P2_most_mutate_gene$V16 <- substr(P2_most_mutate_gene$V16, 1,16)
+colnames(P2_most_mutate_gene) <- c("gene", "TARGET USI")
+n_MUT_per_patients_P2 <- n_MUT_per_patients_P2[,c(3,4)]
+P2_most_mutate_gene <- dplyr::right_join(P2_most_mutate_gene,n_MUT_per_patients_P2, by = "TARGET USI" )
+P2_most_mutate_gene_BALL <- P2_most_mutate_gene[which(P2_most_mutate_gene$Group=="BALL"),]
+P2_most_mutate_gene_BALL <- as.data.frame(table(P2_most_mutate_gene_BALL))
+P2_most_mutate_gene_bALL <-  as.data.frame(table(P2_most_mutate_gene$gene))
+
+P2_most_mutate_gene <- P2_most_mutate_gene[order(P2_most_mutate_gene$Freq, decreasing = T),]
+barplot(height= P2_most_mutate_gene$Freq[1:6], names=P2_most_mutate_gene$Var1[1:6], 
+        col= brewer.pal(n = 6, name = "RdBu"),
+        horiz=T, las=0.5,
+        main = "Most mutated genes in TALL",
+        xlab ="Numbers of mutation",
+        ylab = "Gene names"
+        )
+
+
+```
+
+
+
+```{r}
+RWR_tAML_025 <- read.delim("RW_tAML_P3_0.25.tsv")
+RWR_tAML_DE_score_before_after_top50 <- read.delim("RWR_tAML_DE_score_before_after_top50.csv")
+RWR_tAML_minscore <- read.delim("RWR_tAML_minscore.csv")
+
+
+tAML_Mut_score_before_afterORDERED_top50 <- read.delim("tAML_Mut_score_before_afterORDERED_top50.csv", sep = ",")
+tAML_Mut_score_before_afterORDERED_top50 <- 
+colnames(tAML_Mut_score_before_afterORDERED_top50)<- c()
+tAML_Mut_score_before_afterORDERED_top20 <- tAML_Mut_score_before_afterORDERED_top50[1:20,] 
+
+```
+
+
+```{r}
+###DownLoad data Storage 
+
+
+write.csv(dds_all, "dds_all.csv")
+saveRDS(dds_all, file = "C:/Users/nguye/OneDrive/Bureau/internshipDLAD_M1/R_scripts/dds_all.rds")
+saveRDS(tAll_P2_SNV_all, file = "/home/annie/Desktop/Internship_M1_tALL/tALL_P2_SNV_all.rds")
+saveRDS(tAll_P3_SNV_all, file = "/home/annie/Desktop/Internship_M1_tALL/tALL_P3_SNV_all.rds")
+saveRDS(m, file = "/home/annie/Desktop/Internship_M1_tALL/m.rds")  
+saveRDS(m_2, file = "/home/annie/Desktop/Internship_M1_tALL/m_2.rds")  
+saveRDS(filtered_df, file = "/home/annie/Desktop/Internship_M1_tALL/filtered_df_P2.rds")  
+saveRDS(clinical, file = "/home/annie/Desktop/Internship_M1_tALL/clinical_P2.rds")  
+saveRDS(m_P3, file = "/home/annie/Desktop/Internship_M1_tALL/m_P3.rds")  
+saveRDS(clinical, file = "/home/annie/Desktop/Internship_M1_tALL/clinical_P2.rds")  
+saveRDS(clinical_P3, file = "/home/annie/Desktop/Internship_M1_tALL/clinical_P3.rds")
+saveRDS(expdesign, file = "/home/annie/Desktop/Internship_M1_tALL/expdesign_P2.rds")  
+saveRDS(expdesign_P3, file = "/home/annie/Desktop/Internship_M1_tALL/expdesign_P3.rds") 
+saveRDS(query_mRNA_AML, file = "/home/annie/Desktop/Internship_M1_tALL/query_mRNA_AML.rds") 
+saveRDS(query_mRNA_P2, file = "/home/annie/Desktop/Internship_M1_tALL/query_mRNA_P2.rds") 
+saveRDS(query_mRNA_P3, file = "/home/annie/Desktop/Internship_M1_tALL/query_mRNA_P3.rds") 
+
+
+
+```
+
+
+
+
+
+
